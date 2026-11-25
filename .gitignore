@@ -1,0 +1,27 @@
+# Chat history & local project logs (Strictly local, never uploaded)
+.chat_history/
+*.chatlog
+.project_history/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Local Skills and Agent extensions
+.agent/
+.agents/
+
+# Dependencies & build outputs
+node_modules/
+dist/
+.next/
+.vercel/
+.cache/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
