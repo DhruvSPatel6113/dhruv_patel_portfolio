@@ -678,16 +678,16 @@ function FacetedIndustrialArm({
       {/* Dynamic Blood-Red Arc Light casting reflections onto arm & rail */}
       <pointLight ref={arcLightRef} color="#ef4444" intensity={0} distance={8} decay={1.6} />
 
-      {/* REFLECTIVE LINEAR GANTRY RAIL ALONG BOTTOM EDGE (FULL VIEWPORT WIDTH) */}
+      {/* REFLECTIVE LINEAR GANTRY RAIL ALONG BOTTOM EDGE (USABLE CARRIAGE SPAN) */}
       <group position={[0, floorY + 0.04, -0.05]}>
         <mesh material={reflectiveRailMat}>
-          <boxGeometry args={[viewport.width * 1.15, 0.048, 0.42]} />
+          <boxGeometry args={[viewport.width * 0.9, 0.048, 0.42]} />
         </mesh>
         <mesh position={[0, 0.03, 0.16]} material={silverArmor}>
-          <boxGeometry args={[viewport.width * 1.15, 0.018, 0.045]} />
+          <boxGeometry args={[viewport.width * 0.9, 0.018, 0.045]} />
         </mesh>
         <mesh position={[0, 0.03, -0.16]} material={silverArmor}>
-          <boxGeometry args={[viewport.width * 1.15, 0.018, 0.045]} />
+          <boxGeometry args={[viewport.width * 0.9, 0.018, 0.045]} />
         </mesh>
       </group>
 
