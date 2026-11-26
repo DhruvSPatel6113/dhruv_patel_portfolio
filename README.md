@@ -2,7 +2,7 @@
 
 > Personal interactive developer portfolio showcase
 
-[![Play Live Demo](https://img.shields.io/badge/Play-Live%20Demo-38bdf8?style=for-the-badge&logo=google-chrome&logoColor=white)](https://dhruvspatel6113.github.io/dhruv_patel_portfolio/)
+[![Play Live Demo](https://dhruvpatel-umber.vercel.app/)
 
 ## Live Web App
 👉 **Play / Preview directly in browser**: [https://dhruvspatel6113.github.io/dhruv_patel_portfolio/](https://dhruvspatel6113.github.io/dhruv_patel_portfolio/)
