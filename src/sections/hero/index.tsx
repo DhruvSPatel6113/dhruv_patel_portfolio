@@ -29,7 +29,10 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 
 export default function HeroSection({ content, isActive, onNavigateSection }: HeroSectionProps) {
   const sectionRef = useRef<HTMLElement>(null);
+  const contentZoomRef = useRef<HTMLDivElement>(null);
   const spotlightOverlayRef = useRef<HTMLDivElement>(null);
+  const topCinemaBarRef = useRef<HTMLDivElement>(null);
+  const bottomCinemaBarRef = useRef<HTMLDivElement>(null);
   const badgeRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const headlineRef = useRef<HTMLParagraphElement>(null);
@@ -68,6 +71,9 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
       laserTargetRef.current.fireLaser = false;
 
       if (spotlightOverlayRef.current) gsap.set(spotlightOverlayRef.current, { opacity: 0 });
+      if (topCinemaBarRef.current) gsap.set(topCinemaBarRef.current, { yPercent: -100 });
+      if (bottomCinemaBarRef.current) gsap.set(bottomCinemaBarRef.current, { yPercent: 100 });
+      if (contentZoomRef.current) gsap.set(contentZoomRef.current, { scale: 1 });
       if (titleRef.current) gsap.set(titleRef.current, { opacity: 0 });
       if (headlineRef.current) gsap.set(headlineRef.current, { opacity: 0 });
       if (badgeRef.current) gsap.set(badgeRef.current, { opacity: 0, y: 10 });
@@ -141,11 +147,11 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
         const p = document.createElementNS(SVG_NS, 'path');
         p.setAttribute('d', d);
         p.setAttribute('fill', 'none');
-        p.setAttribute('stroke', '#38bdf8');
+        p.setAttribute('stroke', '#ef4444');
         p.setAttribute('stroke-width', '8');
         p.setAttribute('stroke-linecap', 'round');
         p.setAttribute('stroke-linejoin', 'round');
-        p.style.filter = 'drop-shadow(0 0 6px rgba(56,189,248,0.9))';
+        p.style.filter = 'drop-shadow(0 0 8px rgba(220,38,38,0.95))';
         svg.appendChild(p);
         return p;
       });
@@ -164,7 +170,7 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
       });
     });
 
-    gsap.set(splitHead.chars, { opacity: 0, color: '#38bdf8' });
+    gsap.set(splitHead.chars, { opacity: 0, color: '#ef4444' });
 
     const setSpotlight = (sx: number, sy: number) => {
       if (!overlayEl || !sectionRef.current) return;
@@ -175,7 +181,7 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
 
     const tl = gsap.timeline();
 
-    // 1. Fade in very dark backdrop with focused laser spotlight + move arm to first char
+    // 1. Slide in cinema letterbox bars, fade in 0.95 dark diffusion layer & zoom in onto characters
     if (charJobs.length > 0) {
       setSpotlight(charJobs[0].startX, charJobs[0].startY);
       tl.call(() => {
@@ -187,14 +193,18 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
           baseBiasX: -0.25,
         };
         sound.playPneumatic();
-      }).to(overlayEl, {
-        opacity: 1,
-        duration: 0.45,
-        ease: 'power2.out',
-      });
+      })
+        .to(overlayEl, { opacity: 1, duration: 0.45, ease: 'power2.out' })
+        .to(topCinemaBarRef.current, { yPercent: 0, duration: 0.45, ease: 'power3.out' }, '<')
+        .to(bottomCinemaBarRef.current, { yPercent: 0, duration: 0.45, ease: 'power3.out' }, '<')
+        .to(
+          contentZoomRef.current,
+          { scale: 1.07, duration: 0.6, ease: 'power2.out', transformOrigin: '20% 42%' },
+          '<'
+        );
     }
 
-    // 2. Trace each title character stroke-by-stroke inside the focused laser spotlight
+    // 2. Trace each title character stroke-by-stroke with blood-red laser & sparks
     charJobs.forEach((job) => {
       job.paths.forEach((pathEl, strokeIdx) => {
         const totalLen = Math.max(1, pathEl.getTotalLength());
@@ -227,14 +237,15 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
         );
       });
 
+      // Blood-red thermal flash -> slate-950 solidify
       tl.fromTo(
         job.charEl,
-        { color: '#38bdf8' },
+        { color: '#ef4444' },
         { color: '#020617', duration: 0.14, ease: 'power2.out', immediateRender: false }
       ).to(job.svgEl, { opacity: 0, duration: 0.12 }, '<');
     });
 
-    // 3. Engrave headline character-by-character inside the focused spotlight
+    // 3. Engrave headline character-by-character inside focused spotlight
     splitHead.chars.forEach((node) => {
       const charEl = node as HTMLElement;
       tl.to(charEl, {
@@ -255,17 +266,16 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
       });
     });
 
-    // 4. Turn off laser, fade out dark overlay, reveal badge + CTAs & return arm home
+    // 4. Laser off, pull camera & DOM zoom back out, retract cinema bars, fade out dark layer
     tl.call(() => {
       laserTargetRef.current.active = false;
       laserTargetRef.current.fireLaser = false;
       sound.playSuccess();
     })
-      .to(overlayEl, {
-        opacity: 0,
-        duration: 0.5,
-        ease: 'power2.inOut',
-      })
+      .to(overlayEl, { opacity: 0, duration: 0.55, ease: 'power2.inOut' })
+      .to(topCinemaBarRef.current, { yPercent: -100, duration: 0.45, ease: 'power2.in' }, '<')
+      .to(bottomCinemaBarRef.current, { yPercent: 100, duration: 0.45, ease: 'power2.in' }, '<')
+      .to(contentZoomRef.current, { scale: 1, duration: 0.55, ease: 'power2.inOut' }, '<')
       .to(badgeRef.current, { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out' }, '-=0.25')
       .to(ctaRef.current, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, '<')
       .call(() => {
@@ -286,35 +296,55 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
       ref={sectionRef}
       className="relative min-h-screen flex flex-col justify-center overflow-visible"
     >
-      {/* Full-Width Open-Stage Faceted Industrial Arm + Laser Engraver Canvas */}
+      {/* Full-Width Open-Stage Faceted Industrial Arm + Blood-Red Laser + Sparks + Cinematic Post */}
       <RoboticArmStage
         armPoseRef={armPoseRef}
         laserTargetRef={laserTargetRef}
         isIdleTracking={isIdleTracking}
       />
 
-      {/* Realistic Light Diffusion & Dimness Overlay (Fades In -> Tracks Laser -> Fades Out) */}
+      {/* 2.39:1 Cinematic Letterbox Bars */}
+      <div
+        ref={topCinemaBarRef}
+        className="fixed top-0 inset-x-0 h-10 sm:h-14 bg-black z-40 pointer-events-none will-change-transform"
+        style={{ transform: 'translateY(-100%)' }}
+      />
+      <div
+        ref={bottomCinemaBarRef}
+        className="fixed bottom-0 inset-x-0 h-10 sm:h-14 bg-black z-40 pointer-events-none will-change-transform"
+        style={{ transform: 'translateY(100%)' }}
+      />
+
+      {/* 0.95 Dark Optical Diffusion Layer + Blood-Red Scatter & Anamorphic Refractive Flare */}
       <div
         ref={spotlightOverlayRef}
         className="fixed inset-0 z-30 pointer-events-none opacity-0 will-change-[opacity]"
         style={{
           background:
-            'radial-gradient(circle 220px at var(--lx, 30%) var(--ly, 45%), rgba(224, 242, 254, 0.06) 0%, rgba(56, 189, 248, 0.11) 20%, rgba(15, 23, 42, 0.36) 46%, rgba(8, 13, 26, 0.64) 72%, rgba(4, 8, 18, 0.80) 100%)',
-          backdropFilter: 'brightness(0.88)',
+            'radial-gradient(circle 210px at var(--lx, 30%) var(--ly, 45%), rgba(254, 226, 226, 0.04) 0%, rgba(239, 68, 68, 0.12) 18%, rgba(15, 23, 42, 0.48) 44%, rgba(6, 10, 20, 0.80) 70%, rgba(2, 4, 10, 0.95) 100%)',
+          backdropFilter: 'brightness(0.66) contrast(1.08)',
         }}
       >
-        {/* Soft optical laser scatter halo */}
+        {/* Blood-red optical scatter halo */}
         <div
           className="absolute inset-0 mix-blend-screen"
           style={{
             background:
-              'radial-gradient(circle 145px at var(--lx, 30%) var(--ly, 45%), rgba(125, 211, 252, 0.22) 0%, rgba(14, 165, 233, 0.08) 45%, transparent 100%)',
+              'radial-gradient(circle 145px at var(--lx, 30%) var(--ly, 45%), rgba(239, 68, 68, 0.28) 0%, rgba(185, 28, 28, 0.12) 45%, transparent 100%)',
+          }}
+        />
+        {/* Anamorphic horizontal crimson refractive streak */}
+        <div
+          className="absolute inset-0 mix-blend-screen"
+          style={{
+            background:
+              'radial-gradient(ellipse 320px 16px at var(--lx, 30%) var(--ly, 45%), rgba(248, 113, 113, 0.32) 0%, rgba(220, 38, 38, 0.1) 50%, transparent 100%)',
           }}
         />
       </div>
 
-      {/* Ultra-Clean, Focused Left-Aligned Hero Content */}
-      <div className="relative z-10 max-w-xl space-y-6 pointer-events-auto">
+      {/* Ultra-Clean, Focused Left-Aligned Hero Content (Synced Zoom Container) */}
+      <div ref={contentZoomRef} className="relative z-10 max-w-xl space-y-6 pointer-events-auto will-change-transform">
         <div
           ref={badgeRef}
           className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/90 border border-slate-200 text-slate-600 font-mono text-[11px] font-semibold shadow-sm"
