@@ -54,7 +54,7 @@ export default function Home() {
     } catch {}
   };
 
-  // Lock page scroll & park site at 100vh below viewport while loading curtain is active
+  // Lock page scroll while dismantled arm assembly loader is active
   useEffect(() => {
     if (isLoadingScreen) {
       window.scrollTo(0, 0);
@@ -63,7 +63,7 @@ export default function Home() {
       document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
       if (siteWrapperRef.current) {
-        gsap.set(siteWrapperRef.current, { y: '100vh' });
+        gsap.set(siteWrapperRef.current, { y: 0, clearProps: 'transform' });
       }
       return;
     }

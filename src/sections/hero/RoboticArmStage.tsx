@@ -7,6 +7,13 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import {
+  getArmLayout,
+  createFacetedLinkGeometry,
+  TURRET_SHROUD_POINTS,
+  UPPER_BOOM_POINTS,
+  FOREARM_POINTS,
+} from './armLayout';
 
 export interface ArmPoseState {
   turretYaw: number;
@@ -296,29 +303,6 @@ function WeldingSparks({
   );
 }
 
-// ============================================================================
-// 4. FACETED INDUSTRIAL ARM + BLOOD-RED LASER + REFLECTIVE RAIL + CAMERA ZOOM
-// ============================================================================
-function createFacetedLinkGeometry(points: [number, number][], depth: number, bevel = 0.05) {
-  const shape = new THREE.Shape();
-  points.forEach(([x, y], idx) => {
-    if (idx === 0) shape.moveTo(x, y);
-    else shape.lineTo(x, y);
-  });
-  shape.closePath();
-
-  const geo = new THREE.ExtrudeGeometry(shape, {
-    depth,
-    bevelEnabled: true,
-    bevelThickness: bevel,
-    bevelSize: bevel,
-    bevelSegments: 1,
-  });
-  geo.translate(0, 0, -depth / 2);
-  geo.computeVertexNormals();
-  return geo;
-}
-
 function FacetedIndustrialArm({
   armPoseRef,
   laserTargetRef,
@@ -327,9 +311,7 @@ function FacetedIndustrialArm({
 }: RoboticArmProps) {
   const { viewport, camera, size } = useThree();
 
-  const baseScale = Math.min(viewport.height * 0.23, viewport.width * 0.145);
-  const homeBaseX = viewport.width * 0.27;
-  const floorY = -viewport.height * 0.5;
+  const { baseScale, homeBaseX, floorY } = getArmLayout(viewport);
 
   const baseGroupRef = useRef<THREE.Group>(null);
   const currentBaseXRef = useRef(homeBaseX);
@@ -438,56 +420,9 @@ function FacetedIndustrialArm({
     []
   );
 
-  const turretShroudGeo = useMemo(
-    () =>
-      createFacetedLinkGeometry(
-        [
-          [-0.42, 0.0],
-          [0.36, 0.0],
-          [0.44, 0.35],
-          [0.24, 0.92],
-          [-0.18, 0.96],
-          [-0.46, 0.42],
-        ],
-        0.54,
-        0.06
-      ),
-    []
-  );
-
-  const upperBoomGeo = useMemo(
-    () =>
-      createFacetedLinkGeometry(
-        [
-          [-0.26, -0.15],
-          [0.26, -0.15],
-          [0.34, 0.6],
-          [0.2, 1.56],
-          [-0.2, 1.56],
-          [-0.32, 0.66],
-        ],
-        0.38,
-        0.055
-      ),
-    []
-  );
-
-  const forearmGeo = useMemo(
-    () =>
-      createFacetedLinkGeometry(
-        [
-          [-0.24, -0.12],
-          [0.24, -0.12],
-          [0.28, 0.5],
-          [0.18, 1.32],
-          [-0.18, 1.32],
-          [-0.26, 0.52],
-        ],
-        0.3,
-        0.05
-      ),
-    []
-  );
+  const turretShroudGeo = useMemo(() => createFacetedLinkGeometry(TURRET_SHROUD_POINTS, 0.54, 0.06), []);
+  const upperBoomGeo = useMemo(() => createFacetedLinkGeometry(UPPER_BOOM_POINTS, 0.38, 0.055), []);
+  const forearmGeo = useMemo(() => createFacetedLinkGeometry(FOREARM_POINTS, 0.3, 0.05), []);
 
   useEffect(() => {
     return () => {

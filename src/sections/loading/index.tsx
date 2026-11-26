@@ -2,25 +2,30 @@
 
 import React, { useRef, useState, useEffect, useMemo, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { ContactShadows, Text, Float, RoundedBox } from '@react-three/drei';
+import { ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import gsap from 'gsap';
 import { sound } from '@/utils/audio';
-import { createBeepRobot, LoaderStage } from './kits/beepRobotKit';
-import { createTowCableAssembly } from './kits/towCableKit';
+import {
+  getArmLayout,
+  createFacetedLinkGeometry,
+  TURRET_SHROUD_POINTS,
+  UPPER_BOOM_POINTS,
+  FOREARM_POINTS,
+} from '@/sections/hero/armLayout';
 
 interface RobotLoaderProps {
   onComplete?: () => void;
   siteRef?: React.RefObject<HTMLDivElement>;
 }
 
-type FaceExpression = 'determined' | 'surprised' | 'dizzy' | 'happy';
+type LoaderPhase = 'assembling' | 'hold' | 'docking';
 
-// ============================================================================
-// 1. STUDIO PMREM ENVIRONMENT (3dviz-pro-max lighting-studio pattern)
-// ============================================================================
-function StudioEnvironment({ intensity = 0.28 }: { intensity?: number }) {
+const OVERHEAD_CAM_POS = new THREE.Vector3(0, 7.6, 2.2);
+const FRONT_CAM_POS = new THREE.Vector3(0, 0, 5.5);
+
+function StudioEnvironment({ intensity = 0.42 }: { intensity?: number }) {
   const { gl, scene } = useThree();
 
   useEffect(() => {
@@ -41,608 +46,850 @@ function StudioEnvironment({ intensity = 0.28 }: { intensity?: number }) {
   return null;
 }
 
-// ============================================================================
-// 2. DYNAMIC ANIMATED OLED FACE TEXTURE (PIXAR "BEEP" EXPRESSIONS)
-// ============================================================================
-function useOledFaceTexture(expression: FaceExpression) {
-  const texture = useMemo(() => {
-    if (typeof window === 'undefined') return null;
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 384;
-    return new THREE.CanvasTexture(canvas);
-  }, []);
+function smoothStep(t: number) {
+  const c = THREE.MathUtils.clamp(t, 0, 1);
+  return c * c * (3 - 2 * c);
+}
 
-  useEffect(() => {
-    if (!texture || typeof window === 'undefined') return;
-    const canvas = texture.image as HTMLCanvasElement;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+function evalPickPlace(
+  progress: number,
+  startP: number,
+  endP: number,
+  from: [number, number, number],
+  to: [number, number, number],
+  home: [number, number, number]
+): {
+  gripPos: [number, number, number];
+  carryAlpha: number;
+  isCarrying: boolean;
+  placed: boolean;
+  jawOpen: number;
+} {
+  if (progress <= startP) {
+    return { gripPos: home, carryAlpha: 0, isCarrying: false, placed: false, jawOpen: 1 };
+  }
+  if (progress >= endP) {
+    return { gripPos: home, carryAlpha: 1, isCarrying: false, placed: true, jawOpen: 1 };
+  }
 
-    const grad = ctx.createRadialGradient(256, 192, 40, 256, 192, 280);
-    grad.addColorStop(0, '#0a1020');
-    grad.addColorStop(1, '#030712');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 512, 384);
-
-    ctx.shadowColor = '#38bdf8';
-    ctx.shadowBlur = 24;
-    ctx.strokeStyle = '#38bdf8';
-    ctx.fillStyle = '#38bdf8';
-    ctx.lineWidth = 22;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    if (expression === 'determined') {
-      // > < strained squinting eyes
-      ctx.beginPath();
-      ctx.moveTo(125, 145);
-      ctx.lineTo(195, 185);
-      ctx.lineTo(125, 225);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(387, 145);
-      ctx.lineTo(317, 185);
-      ctx.lineTo(387, 225);
-      ctx.stroke();
-
-      ctx.lineWidth = 14;
-      ctx.beginPath();
-      ctx.moveTo(215, 275);
-      ctx.quadraticCurveTo(256, 255, 297, 275);
-      ctx.stroke();
-    } else if (expression === 'surprised') {
-      // O O wide shocked eyes
-      ctx.beginPath();
-      ctx.arc(170, 180, 52, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(170, 180, 20, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(342, 180, 52, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(342, 180, 20, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.lineWidth = 12;
-      ctx.beginPath();
-      ctx.arc(256, 285, 18, 0, Math.PI * 2);
-      ctx.stroke();
-    } else if (expression === 'dizzy') {
-      // Tom & Jerry style hypnotic concentric spiral eyes
-      ctx.lineWidth = 11;
-      [170, 342].forEach((cx) => {
-        ctx.beginPath();
-        for (let a = 0; a < Math.PI * 5.2; a += 0.15) {
-          const r = (a / (Math.PI * 5.2)) * 50;
-          const x = cx + Math.cos(a) * r;
-          const y = 182 + Math.sin(a) * r;
-          if (a === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-      });
-
-      ctx.lineWidth = 12;
-      ctx.beginPath();
-      ctx.moveTo(222, 285);
-      ctx.quadraticCurveTo(256, 265, 290, 285);
-      ctx.stroke();
-    } else {
-      // ^ ^ happy smiling arcs
-      ctx.beginPath();
-      ctx.arc(170, 205, 48, Math.PI * 1.15, Math.PI * 1.85);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(342, 205, 48, Math.PI * 1.15, Math.PI * 1.85);
-      ctx.stroke();
-
-      ctx.lineWidth = 16;
-      ctx.beginPath();
-      ctx.arc(256, 235, 46, Math.PI * 0.15, Math.PI * 0.85);
-      ctx.stroke();
-    }
-
-    texture.needsUpdate = true;
-  }, [texture, expression]);
-
-  return texture;
+  const u = (progress - startP) / (endP - startP);
+  if (u < 0.22) {
+    const t = smoothStep(u / 0.22);
+    return {
+      gripPos: [
+        THREE.MathUtils.lerp(home[0], from[0], t),
+        THREE.MathUtils.lerp(home[1], from[1] + 0.16, t) + Math.sin(t * Math.PI) * 0.4,
+        THREE.MathUtils.lerp(home[2], from[2], t),
+      ],
+      carryAlpha: 0,
+      isCarrying: false,
+      placed: false,
+      jawOpen: u > 0.17 ? 0.1 : 1,
+    };
+  }
+  if (u < 0.78) {
+    const t = smoothStep((u - 0.22) / 0.56);
+    const arcY = Math.sin(t * Math.PI) * 1.05;
+    return {
+      gripPos: [
+        THREE.MathUtils.lerp(from[0], to[0], t),
+        THREE.MathUtils.lerp(from[1], to[1], t) + arcY + 0.16,
+        THREE.MathUtils.lerp(from[2], to[2], t),
+      ],
+      carryAlpha: t,
+      isCarrying: true,
+      placed: false,
+      jawOpen: 0.1,
+    };
+  }
+  const t = smoothStep((u - 0.78) / 0.22);
+  return {
+    gripPos: [
+      THREE.MathUtils.lerp(to[0], home[0], t),
+      THREE.MathUtils.lerp(to[1] + 0.16, home[1], t) + Math.sin(t * Math.PI) * 0.4,
+      THREE.MathUtils.lerp(to[2], home[2], t),
+    ],
+    carryAlpha: 1,
+    isCarrying: false,
+    placed: true,
+    jawOpen: 1,
+  };
 }
 
 // ============================================================================
-// 3. TOM & JERRY STYLE COMIC DIZZY HALO
+// 3dviz-pro-max SCULPTED 3-DOF PICK-AND-PLACE ASSEMBLY ARM
 // ============================================================================
-function CurvedComicWord({
-  word,
-  radius,
-  startAngle,
-  stepAngle,
-  color,
-  fontSize = 0.19,
+function PickPlaceArm({
+  basePos,
+  targetRef,
+  scale,
+  graphiteMat,
+  silverMat,
+  accentMat,
+  darkMat,
 }: {
-  word: string;
-  radius: number;
-  startAngle: number;
-  stepAngle: number;
-  color: string;
-  fontSize?: number;
+  basePos: [number, number, number];
+  targetRef: React.MutableRefObject<{ pos: [number, number, number]; jawOpen: number }>;
+  scale: number;
+  graphiteMat: THREE.Material;
+  silverMat: THREE.Material;
+  accentMat: THREE.Material;
+  darkMat: THREE.Material;
 }) {
-  const letters = word.split('');
-  return (
-    <group>
-      {letters.map((char, idx) => {
-        const angle = startAngle + idx * stepAngle;
-        const x = Math.sin(angle) * radius;
-        const z = Math.cos(angle) * radius;
-        return (
-          <group key={idx} position={[x, 0.08, z]} rotation={[0, angle, 0]}>
-            <Text
-              fontSize={fontSize}
-              color={color}
-              anchorX="center"
-              anchorY="middle"
-              outlineWidth={0.032}
-              outlineColor="#0f172a"
-            >
-              {char}
-            </Text>
-          </group>
-        );
-      })}
-    </group>
-  );
-}
-
-function DizzyHalo() {
-  const haloRef = useRef<THREE.Group>(null);
-  const innerRingRef = useRef<THREE.Group>(null);
+  const turretRef = useRef<THREE.Group>(null);
+  const shoulderRef = useRef<THREE.Group>(null);
+  const elbowRef = useRef<THREE.Group>(null);
+  const wristRef = useRef<THREE.Group>(null);
+  const jawLRef = useRef<THREE.Mesh>(null);
+  const jawRRef = useRef<THREE.Mesh>(null);
 
   useFrame((_, delta) => {
-    if (haloRef.current) haloRef.current.rotation.y += delta * 3.2;
-    if (innerRingRef.current) innerRingRef.current.rotation.y -= delta * 2.0;
+    const { pos, jawOpen } = targetRef.current;
+    const [tx, ty, tz] = pos;
+    const dx = (tx - basePos[0]) / scale;
+    const dz = (tz - basePos[2]) / scale;
+    const dy = (ty - (basePos[1] + 0.44 * scale)) / scale;
+
+    const yaw = Math.atan2(dx, dz);
+    const horiz = Math.hypot(dx, dz);
+
+    const L1 = 1.85;
+    const L2 = 1.85;
+    const dist = THREE.MathUtils.clamp(Math.hypot(horiz, dy), 0.45, (L1 + L2) * 0.96);
+    const cosElbow = THREE.MathUtils.clamp((dist * dist - L1 * L1 - L2 * L2) / (2 * L1 * L2), -0.96, 0.96);
+    const elbowAng = Math.acos(cosElbow);
+    const angleToTarget = Math.atan2(horiz, dy);
+    const alpha = Math.atan2(L2 * Math.sin(elbowAng), L1 + L2 * Math.cos(elbowAng));
+
+    const goalShoulder = THREE.MathUtils.clamp(angleToTarget - alpha, -0.35, 1.5);
+    const goalElbow = THREE.MathUtils.clamp(elbowAng, 0.25, 2.3);
+    const goalWrist = Math.PI - goalShoulder - goalElbow;
+
+    if (turretRef.current) turretRef.current.rotation.y = THREE.MathUtils.damp(turretRef.current.rotation.y, yaw, 9, delta);
+    if (shoulderRef.current) shoulderRef.current.rotation.x = THREE.MathUtils.damp(shoulderRef.current.rotation.x, goalShoulder, 9, delta);
+    if (elbowRef.current) elbowRef.current.rotation.x = THREE.MathUtils.damp(elbowRef.current.rotation.x, goalElbow, 9, delta);
+    if (wristRef.current) wristRef.current.rotation.x = THREE.MathUtils.damp(wristRef.current.rotation.x, goalWrist, 11, delta);
+
+    const jOff = 0.045 + jawOpen * 0.055;
+    if (jawLRef.current) jawLRef.current.position.x = THREE.MathUtils.damp(jawLRef.current.position.x, -jOff, 12, delta);
+    if (jawRRef.current) jawRRef.current.position.x = THREE.MathUtils.damp(jawRRef.current.position.x, jOff, 12, delta);
   });
 
-  const starColors = ['#fbbf24', '#38bdf8', '#fb7185', '#fde047', '#fbbf24', '#38bdf8'];
-
   return (
-    <group position={[0, 0.14, 0]} rotation={[0.32, 0, -0.14]}>
-      <group ref={haloRef}>
-        <mesh rotation={[Math.PI / 2, 0, 0]} scale={[1.08, 0.92, 1]}>
-          <torusGeometry args={[0.72, 0.012, 8, 48]} />
-          <meshBasicMaterial color="#334155" transparent opacity={0.55} />
+    <group position={basePos} scale={scale}>
+      {/* Grounded Pedestal + Bolt Collar */}
+      <mesh position={[0, 0.16, 0]} material={graphiteMat} castShadow>
+        <cylinderGeometry args={[0.28, 0.34, 0.32, 20]} />
+      </mesh>
+      <mesh position={[0, 0.35, 0]} material={silverMat}>
+        <cylinderGeometry args={[0.25, 0.27, 0.06, 20]} />
+      </mesh>
+      <group ref={turretRef} position={[0, 0.44, 0]}>
+        <mesh material={accentMat} castShadow>
+          <cylinderGeometry args={[0.21, 0.23, 0.16, 18]} />
         </mesh>
-        <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2 + 0.08, 0.1, 0]} scale={[0.95, 1.05, 1]}>
-          <torusGeometry args={[0.64, 0.009, 8, 48]} />
-          <meshBasicMaterial color="#64748b" transparent opacity={0.45} />
-        </mesh>
+        <group ref={shoulderRef} position={[0, 0.08, 0]}>
+          <mesh rotation={[0, 0, Math.PI / 2]} material={darkMat}>
+            <cylinderGeometry args={[0.17, 0.17, 0.3, 16]} />
+          </mesh>
+          {/* Twin-spar upper link */}
+          <mesh position={[-0.08, 0.92, 0]} material={silverMat} castShadow>
+            <boxGeometry args={[0.07, 1.85, 0.2]} />
+          </mesh>
+          <mesh position={[0.08, 0.92, 0]} material={silverMat} castShadow>
+            <boxGeometry args={[0.07, 1.85, 0.2]} />
+          </mesh>
+          <mesh position={[0, 0.92, 0]} material={graphiteMat}>
+            <boxGeometry args={[0.1, 1.6, 0.12]} />
+          </mesh>
 
-        <CurvedComicWord word="BONK!" radius={0.76} startAngle={-0.45} stepAngle={0.22} color="#fb923c" fontSize={0.21} />
-        <CurvedComicWord word="DIZZY!" radius={0.76} startAngle={Math.PI - 0.52} stepAngle={0.2} color="#fde047" fontSize={0.19} />
+          <group ref={elbowRef} position={[0, 1.85, 0]}>
+            <mesh rotation={[0, 0, Math.PI / 2]} material={accentMat}>
+              <cylinderGeometry args={[0.14, 0.14, 0.28, 16]} />
+            </mesh>
+            <mesh position={[0, 0.92, 0]} material={silverMat} castShadow>
+              <boxGeometry args={[0.14, 1.85, 0.16]} />
+            </mesh>
+            <mesh position={[0, 0.92, 0]} material={graphiteMat}>
+              <boxGeometry args={[0.17, 1.2, 0.08]} />
+            </mesh>
 
-        {starColors.map((col, i) => {
-          const angle = (i / starColors.length) * Math.PI * 2 + 0.4;
-          const r = i % 2 === 0 ? 0.72 : 0.6;
-          const yOff = i % 2 === 0 ? -0.04 : 0.12;
-          return (
-            <group key={i} position={[Math.sin(angle) * r, yOff, Math.cos(angle) * r]}>
-              <mesh rotation={[0.4, angle, 0.3]}>
-                <octahedronGeometry args={[0.065, 0]} />
-                <meshStandardMaterial color={col} emissive={col} emissiveIntensity={0.85} roughness={0.2} />
+            <group ref={wristRef} position={[0, 1.85, 0]}>
+              <mesh position={[0, 0.06, 0]} material={darkMat}>
+                <cylinderGeometry args={[0.11, 0.13, 0.12, 14]} />
+              </mesh>
+              <mesh ref={jawLRef} position={[-0.08, 0.16, 0]} material={accentMat}>
+                <boxGeometry args={[0.04, 0.16, 0.09]} />
+              </mesh>
+              <mesh ref={jawRRef} position={[0.08, 0.16, 0]} material={accentMat}>
+                <boxGeometry args={[0.04, 0.16, 0.09]} />
               </mesh>
             </group>
-          );
-        })}
-      </group>
-
-      <group ref={innerRingRef} position={[0, 0.16, 0]}>
-        {[0, Math.PI * 0.66, Math.PI * 1.33].map((angle, i) => (
-          <mesh key={i} position={[Math.sin(angle) * 0.48, 0, Math.cos(angle) * 0.48]}>
-            <octahedronGeometry args={[0.045, 0]} />
-            <meshStandardMaterial color="#fde047" emissive="#fbbf24" emissiveIntensity={1.0} />
-          </mesh>
-        ))}
-      </group>
-    </group>
-  );
-}
-
-// ============================================================================
-// 4. UNIFIED FLOOR SCENE (BEEP KIT + BRAIDED TOW CABLE KIT IN 1-FRAME LOCK)
-// ============================================================================
-function UnifiedFloorScene({
-  stage,
-  progress,
-}: {
-  stage: LoaderStage;
-  progress: number;
-}) {
-  const { viewport } = useThree();
-  const floorY = -viewport.height * 0.34;
-  const anchorX = -viewport.width * 0.48;
-  const anchorY = floorY + 0.38;
-  const botScale = Math.min(0.9, Math.max(0.55, viewport.width / 8.5));
-
-  const expression: FaceExpression = useMemo(() => {
-    if (stage === 'pulling') return 'determined';
-    if (stage === 'snap') return 'surprised';
-    if (stage === 'standup' || stage === 'dizzy') return 'dizzy';
-    return 'happy';
-  }, [stage]);
-
-  const faceTexture = useOledFaceTexture(expression);
-
-  const robotKit = useMemo(() => createBeepRobot({ variant: 'floor', faceTexture }), []);
-  const cableKit = useMemo(() => createTowCableAssembly({ anchorX, anchorY }), []);
-
-  useEffect(() => {
-    robotKit.setFaceTexture(faceTexture);
-  }, [robotKit, faceTexture]);
-
-  useEffect(() => {
-    robotKit.group.position.set(-viewport.width * 0.04, floorY, 0);
-    robotKit.group.rotation.set(0, -Math.PI + 0.38, 0.32);
-    robotKit.group.scale.setScalar(botScale);
-  }, [robotKit, floorY, botScale, viewport.width]);
-
-  useEffect(() => {
-    return () => {
-      robotKit.dispose();
-      cableKit.dispose();
-    };
-  }, [robotKit, cableKit]);
-
-  const badgeGroupRef = useRef<THREE.Group>(null);
-  const headSocketAnchorRef = useRef<THREE.Group>(null);
-  const gripWorldPos = useMemo(() => new THREE.Vector3(), []);
-  const headTopWorldPos = useMemo(() => new THREE.Vector3(), []);
-
-  useFrame((state, delta) => {
-    const elapsed = state.clock.elapsedTime;
-
-    // 1. Advance authoritative robot kinematics
-    robotKit.animate?.(delta, {
-      stage,
-      progress,
-      elapsed,
-      floorY,
-      viewportWidth: viewport.width,
-      viewportHeight: viewport.height,
-    });
-    robotKit.group.scale.setScalar(botScale);
-    robotKit.group.updateMatrixWorld(true);
-
-    // 2. Read exact ropeGrip socket in world space & feed directly into tow cable (zero frame lag!)
-    robotKit.getSocketWorldPosition('ropeGrip', gripWorldPos);
-    cableKit.animate?.(delta, {
-      stage,
-      progress,
-      elapsed,
-      floorY,
-      anchorX,
-      anchorY,
-      gripWorldPos,
-    });
-
-    // 3. Sync percentage badge to cable midpoint
-    if (badgeGroupRef.current && stage === 'pulling') {
-      badgeGroupRef.current.position.copy(cableKit.badgePosition);
-    }
-
-    // 4. Sync headTop overlay (DizzyHalo / "Hii!" bubble) to robot's headTop socket
-    if (headSocketAnchorRef.current) {
-      robotKit.getSocketWorldPosition('headTop', headTopWorldPos);
-      headSocketAnchorRef.current.position.copy(headTopWorldPos);
-      headSocketAnchorRef.current.scale.setScalar(botScale);
-    }
-  });
-
-  const showHiBubble =
-    stage === 'wave' ||
-    stage === 'curtain_half' ||
-    stage === 'curtain_strain' ||
-    stage === 'curtain_final';
-
-  return (
-    <group>
-      <primitive object={robotKit.group} />
-      <primitive object={cableKit.group} />
-
-      {stage === 'pulling' && (
-        <group ref={badgeGroupRef} position={[anchorX * 0.5, anchorY + 0.25, 0.1]}>
-          <Text
-            fontSize={Math.min(0.45, Math.max(0.28, viewport.width / 16))}
-            color="#0f172a"
-            anchorX="center"
-            anchorY="bottom"
-            outlineWidth={0.025}
-            outlineColor="#f8fafc"
-          >
-            {`${progress}%`}
-          </Text>
+          </group>
         </group>
-      )}
-
-      <group ref={headSocketAnchorRef}>
-        {stage === 'dizzy' && <DizzyHalo />}
-        {showHiBubble && (
-          <Float speed={2.5} rotationIntensity={0.15} floatIntensity={0.25}>
-            <group position={[0.68, 0.22, 0]}>
-              <RoundedBox args={[0.56, 0.32, 0.1]} radius={0.12} smoothness={4}>
-                <meshStandardMaterial color="#0284c7" roughness={0.2} />
-              </RoundedBox>
-              <Text
-                position={[0, 0, 0.06]}
-                fontSize={0.18}
-                color="#ffffff"
-                anchorX="center"
-                anchorY="middle"
-              >
-                Hii!
-              </Text>
-            </group>
-          </Float>
-        )}
       </group>
-
-      <ContactShadows
-        position={[0, floorY - 0.01, 0]}
-        opacity={0.38}
-        scale={Math.max(10, viewport.width * 1.4)}
-        blur={2.2}
-        far={4}
-        resolution={256}
-        frames={24}
-        color="#0f172a"
-      />
     </group>
   );
 }
 
 // ============================================================================
-// 5. UNIFIED OVERHEAD COMPANION BOT (SAME 3dviz-pro-max BEEP KIT)
+// 2-TABLE, 4-ARM SIMULTANEOUS ASSEMBLY CELL (ZERO NESTED OFFSET BUGS)
 // ============================================================================
-function OverheadCurtainScene({ stage }: { stage: LoaderStage }) {
-  const { viewport } = useThree();
-  const botScale = Math.min(0.9, Math.max(0.55, viewport.width / 8.5));
+function TwoTableAssemblyCell({
+  progress,
+  dockProgress,
+}: {
+  progress: number;
+  dockProgress: number;
+}) {
+  const { camera, size } = useThree();
+  const perspCam = camera as THREE.PerspectiveCamera;
 
-  const expression: FaceExpression =
-    stage === 'curtain_strain' || stage === 'curtain_final' ? 'determined' : 'happy';
-  const faceTexture = useOledFaceTexture(expression);
-
-  const overheadKit = useMemo(() => createBeepRobot({ variant: 'overhead', faceTexture }), []);
-
-  useEffect(() => {
-    overheadKit.setFaceTexture(faceTexture);
-  }, [overheadKit, faceTexture]);
-
-  useEffect(() => {
-    overheadKit.group.position.set(0, viewport.height * 0.5 + 1.2, 0);
-    overheadKit.group.scale.setScalar(botScale);
-  }, [overheadKit, viewport.height, botScale]);
-
-  useEffect(() => {
-    return () => {
-      overheadKit.dispose();
-    };
-  }, [overheadKit]);
-
-  useFrame((state, delta) => {
-    overheadKit.animate?.(delta, {
-      stage,
-      progress: 100,
-      elapsed: state.clock.elapsedTime,
-      floorY: -viewport.height * 0.34,
-      viewportWidth: viewport.width,
-      viewportHeight: viewport.height,
-    });
-    overheadKit.group.scale.setScalar(botScale);
+  const frontHeight = 2 * Math.tan((42 * Math.PI) / 360) * 5.5;
+  const frontWidth = frontHeight * (size.width / Math.max(1, size.height));
+  const { baseScale, homeBaseX, floorY, restPose } = getArmLayout({
+    width: frontWidth,
+    height: frontHeight,
   });
 
-  return <primitive object={overheadKit.group} />;
-}
+  const cellScale = Math.min(frontWidth * 0.095, 0.66);
+  const tableX = 1.95 * cellScale;
+  const armScale = cellScale * 0.58;
 
-// ============================================================================
-// 6. MASTER DIRECTOR TIMELINE (1:1 SYNC ACROSS ROPE, BEEP, CURTAIN & SITE)
-// ============================================================================
-export default function RobotLoader({ onComplete, siteRef }: RobotLoaderProps) {
-  const curtainRef = useRef<HTMLDivElement>(null);
-  const overheadLayerRef = useRef<HTMLDivElement>(null);
-  const [progress, setProgress] = useState(0);
-  const [stage, setStage] = useState<LoaderStage>('pulling');
-  const sequenceStartedRef = useRef(false);
-  const onCompleteRef = useRef(onComplete);
-  onCompleteRef.current = onComplete;
-  const siteRefCurrent = useRef(siteRef);
-  siteRefCurrent.current = siteRef;
+  const cellTablesRef = useRef<THREE.Group>(null);
+  const rootArmRef = useRef<THREE.Group>(null);
+  const railRef = useRef<THREE.Group>(null);
 
-  // Loading Progress Loop (0% -> 100%)
+  // Independent sibling staging/transit module refs (world-space, never compounded!)
+  const stgPedestalRef = useRef<THREE.Group>(null);
+  const stgTurretRef = useRef<THREE.Group>(null);
+  const stgBoomRef = useRef<THREE.Group>(null);
+  const stgForearmRef = useRef<THREE.Group>(null);
+  const stgWristRef = useRef<THREE.Group>(null);
+  const stgLaserRef = useRef<THREE.Group>(null);
+
+  // Assembled hierarchy visibility & joints inside rootArmRef (shown once placed on Table 2!)
+  const asmPedestalRef = useRef<THREE.Group>(null);
+  const asmTurretRef = useRef<THREE.Group>(null);
+  const asmShoulderRef = useRef<THREE.Group>(null);
+  const asmElbowRef = useRef<THREE.Group>(null);
+  const asmWristRef = useRef<THREE.Group>(null);
+  const asmLaserRef = useRef<THREE.Group>(null);
+  const asmJawLRef = useRef<THREE.Mesh>(null);
+  const asmJawRRef = useRef<THREE.Mesh>(null);
+
+  // 4 Arm live target refs
+  const arm1Target = useRef({ pos: [-0.65 * cellScale, 0.8 * cellScale, -1.75 * cellScale] as [number, number, number], jawOpen: 1 });
+  const arm2Target = useRef({ pos: [-0.65 * cellScale, 0.8 * cellScale, 1.75 * cellScale] as [number, number, number], jawOpen: 1 });
+  const arm3Target = useRef({ pos: [0.65 * cellScale, 0.8 * cellScale, -1.75 * cellScale] as [number, number, number], jawOpen: 1 });
+  const arm4Target = useRef({ pos: [0.65 * cellScale, 0.8 * cellScale, 1.75 * cellScale] as [number, number, number], jawOpen: 1 });
+
+  const silverArmor = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: '#cbd5e1', metalness: 0.58, roughness: 0.24, flatShading: true }),
+    []
+  );
+  const lightTrim = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: '#e2e8f0', metalness: 0.4, roughness: 0.22, flatShading: true }),
+    []
+  );
+  const graphiteChassis = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: '#334155', metalness: 0.55, roughness: 0.42, flatShading: true }),
+    []
+  );
+  const darkRecess = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: '#0f172a', metalness: 0.6, roughness: 0.45 }),
+    []
+  );
+  const reflectiveRailMat = useMemo(
+    () =>
+      new THREE.MeshPhysicalMaterial({
+        color: '#1e293b',
+        metalness: 0.85,
+        roughness: 0.1,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.08,
+        reflectivity: 1.0,
+      }),
+    []
+  );
+  const crimsonAccent = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: '#b91c1c', metalness: 0.55, roughness: 0.24 }),
+    []
+  );
+  const copperNozzle = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: '#f59e0b', metalness: 0.85, roughness: 0.18 }),
+    []
+  );
+  const laserEmitterMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: '#ef4444', emissive: '#dc2626', emissiveIntensity: 2.6, roughness: 0.1 }),
+    []
+  );
+
+  const turretShroudGeo = useMemo(() => createFacetedLinkGeometry(TURRET_SHROUD_POINTS, 0.54, 0.06), []);
+  const upperBoomGeo = useMemo(() => createFacetedLinkGeometry(UPPER_BOOM_POINTS, 0.38, 0.055), []);
+  const forearmGeo = useMemo(() => createFacetedLinkGeometry(FOREARM_POINTS, 0.3, 0.05), []);
+
   useEffect(() => {
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        if (prev % 8 === 0) sound.playRotaryTick();
-        return prev + 1;
-      });
-    }, 32);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Single Authoritative GSAP Master Timeline
-  useEffect(() => {
-    if (progress < 100 || sequenceStartedRef.current) return;
-    sequenceStartedRef.current = true;
-
-    const siteEl = siteRefCurrent.current?.current;
-
-    const master = gsap.timeline({
-      onComplete: () => {
-        if (siteEl) {
-          gsap.set(siteEl, { clearProps: 'transform' });
-        }
-        onCompleteRef.current?.();
-      },
-    });
-
-    // 1. SNAP! Cable detaches with Verlet whip & BEEP tumbles backward
-    master
-      .call(() => {
-        sound.playSnap();
-        setStage('snap');
-      })
-      .to({}, { duration: 0.9 })
-      // 2. STAND UP & FACE USER
-      .call(() => {
-        sound.playCartoonBoing();
-        setStage('standup');
-      })
-      .to({}, { duration: 0.85 })
-      // 3. DIZZY HALO & HEAD RUB
-      .call(() => {
-        setStage('dizzy');
-      })
-      .to({}, { duration: 1.15 })
-      // 4. WAVE "Hii!" + OVERHEAD BOT ENTERS AT TOP
-      .call(() => {
-        sound.playSuccess();
-        setStage('wave');
-      })
-      .to({}, { duration: 1.3 })
-      // 5. TWO-STAGE CURTAIN HOIST (1:1 synchronized with siteRef push-up)
-      .call(() => {
-        sound.playPneumatic();
-        setStage('curtain_half');
-      })
-      .to(curtainRef.current, {
-        height: '84.5vh',
-        duration: 0.28,
-        ease: 'power2.in',
-      })
-      .to(
-        siteEl || {},
-        {
-          y: '84.5vh',
-          duration: 0.28,
-          ease: 'power2.in',
-        },
-        '<'
-      )
-      .to(curtainRef.current, {
-        y: '-40vh',
-        duration: 0.8,
-        ease: 'power2.out',
-      })
-      .to(
-        siteEl || {},
-        {
-          y: '44.5vh',
-          duration: 0.8,
-          ease: 'power2.out',
-        },
-        '<'
-      )
-      // Beat B: Overhead bot drops lower & applies >_< strain
-      .call(() => {
-        sound.playCartoonBoing();
-        setStage('curtain_strain');
-      })
-      .to({}, { duration: 0.65 })
-      // Beat C: Final heave clears curtain & brings site cleanly to 0vh
-      .call(() => {
-        sound.playPneumatic();
-        setStage('curtain_final');
-      })
-      .to(curtainRef.current, {
-        y: '-92vh',
-        duration: 0.95,
-        ease: 'power3.inOut',
-      })
-      .to(
-        siteEl || {},
-        {
-          y: '0vh',
-          duration: 0.95,
-          ease: 'power3.inOut',
-        },
-        '<'
-      )
-      .to(
-        overheadLayerRef.current,
-        {
-          yPercent: -100,
-          duration: 0.45,
-          ease: 'power2.in',
-        },
-        '-=0.2'
-      );
-
     return () => {
-      master.kill();
+      turretShroudGeo.dispose();
+      upperBoomGeo.dispose();
+      forearmGeo.dispose();
+      silverArmor.dispose();
+      lightTrim.dispose();
+      graphiteChassis.dispose();
+      darkRecess.dispose();
+      reflectiveRailMat.dispose();
+      crimsonAccent.dispose();
+      copperNozzle.dispose();
+      laserEmitterMat.dispose();
     };
-  }, [progress]);
+  }, [
+    turretShroudGeo,
+    upperBoomGeo,
+    forearmGeo,
+    silverArmor,
+    lightTrim,
+    graphiteChassis,
+    darkRecess,
+    reflectiveRailMat,
+    crimsonAccent,
+    copperNozzle,
+    laserEmitterMat,
+  ]);
 
-  const showOverheadCanvas =
-    stage === 'wave' ||
-    stage === 'curtain_half' ||
-    stage === 'curtain_strain' ||
-    stage === 'curtain_final';
+  const baseBolts = useMemo(() => Array.from({ length: 10 }, (_, i) => (i / 10) * Math.PI * 2), []);
+  const gearTeeth = useMemo(() => Array.from({ length: 28 }, (_, i) => (i / 28) * Math.PI * 2), []);
+  const drumSlots = useMemo(() => Array.from({ length: 8 }, (_, i) => (i / 8) * Math.PI * 2), []);
+
+  useFrame((_, delta) => {
+    const s = armScale;
+    const trayY = 0.26 * cellScale;
+    const benchArmBaseZ = 1.38 * cellScale;
+
+    // 6 Staging Tray coordinates on Table 1 (Left)
+    const trayPedestal: [number, number, number] = [-tableX - 0.42 * cellScale, trayY, 0.95 * cellScale];
+    const trayTurret: [number, number, number] = [-tableX + 0.42 * cellScale, trayY, 0.95 * cellScale];
+    const trayBoom: [number, number, number] = [-tableX - 0.42 * cellScale, trayY, 0];
+    const trayForearm: [number, number, number] = [-tableX + 0.42 * cellScale, trayY, 0];
+    const trayWrist: [number, number, number] = [-tableX - 0.42 * cellScale, trayY, -0.95 * cellScale];
+    const trayLaser: [number, number, number] = [-tableX + 0.42 * cellScale, trayY, -0.95 * cellScale];
+
+    // 6 Assembly target coordinates on Table 2 (Right, along -Z)
+    const dstPedestal: [number, number, number] = [tableX, trayY + 0.24 * s, benchArmBaseZ];
+    const dstTurret: [number, number, number] = [tableX, trayY + 0.24 * s, benchArmBaseZ - 0.58 * s];
+    const dstBoom: [number, number, number] = [tableX, trayY + 0.24 * s, benchArmBaseZ - 1.36 * s];
+    const dstForearm: [number, number, number] = [tableX, trayY + 0.24 * s, benchArmBaseZ - 2.88 * s];
+    const dstWrist: [number, number, number] = [tableX, trayY + 0.24 * s, benchArmBaseZ - 4.18 * s];
+    const dstLaser: [number, number, number] = [tableX, trayY + 0.24 * s, benchArmBaseZ - 4.58 * s];
+
+    const home1: [number, number, number] = [-0.62 * cellScale, 0.85 * cellScale, -1.85 * cellScale];
+    const home2: [number, number, number] = [-0.62 * cellScale, 0.85 * cellScale, 1.85 * cellScale];
+    const home3: [number, number, number] = [0.62 * cellScale, 0.85 * cellScale, -1.85 * cellScale];
+    const home4: [number, number, number] = [0.62 * cellScale, 0.85 * cellScale, 1.85 * cellScale];
+
+    // 4 Arms working simultaneously in staggered parallel windows
+    const pedJob = evalPickPlace(progress, 2, 42, trayPedestal, dstPedestal, home1);
+    const turJob = evalPickPlace(progress, 44, 88, trayTurret, dstTurret, home1);
+    arm1Target.current = progress < 43
+      ? { pos: pedJob.gripPos, jawOpen: pedJob.jawOpen }
+      : { pos: turJob.gripPos, jawOpen: turJob.jawOpen };
+
+    const boomJob = evalPickPlace(progress, 8, 62, trayBoom, dstBoom, home2);
+    arm2Target.current = { pos: boomJob.gripPos, jawOpen: boomJob.jawOpen };
+
+    const foreJob = evalPickPlace(progress, 16, 74, trayForearm, dstForearm, home3);
+    arm3Target.current = { pos: foreJob.gripPos, jawOpen: foreJob.jawOpen };
+
+    const wristJob = evalPickPlace(progress, 22, 66, trayWrist, dstWrist, home4);
+    const laserJob = evalPickPlace(progress, 68, 98, trayLaser, dstLaser, home4);
+    arm4Target.current = progress < 67
+      ? { pos: wristJob.gripPos, jawOpen: wristJob.jawOpen }
+      : { pos: laserJob.gripPos, jawOpen: laserJob.jawOpen };
+
+    // Sync independent world-space staging/transit modules vs assembled hierarchy
+    const syncModule = (
+      stgRef: React.RefObject<THREE.Group>,
+      asmRef: React.RefObject<THREE.Group>,
+      job: ReturnType<typeof evalPickPlace>,
+      tray: [number, number, number]
+    ) => {
+      const placed = dockProgress > 0 || job.placed;
+      if (stgRef.current) {
+        stgRef.current.visible = !placed;
+        if (!placed) {
+          const wx = job.isCarrying ? job.gripPos[0] : tray[0];
+          const wy = job.isCarrying ? job.gripPos[1] - 0.14 : tray[1];
+          const wz = job.isCarrying ? job.gripPos[2] : tray[2];
+          stgRef.current.position.set(wx, wy, wz);
+          stgRef.current.rotation.set(-Math.PI / 2 * (0.4 + 0.6 * job.carryAlpha), 0, 0);
+        }
+      }
+      if (asmRef.current) {
+        asmRef.current.visible = placed;
+      }
+    };
+
+    syncModule(stgPedestalRef, asmPedestalRef, pedJob, trayPedestal);
+    syncModule(stgTurretRef, asmTurretRef, turJob, trayTurret);
+    syncModule(stgBoomRef, asmShoulderRef, boomJob, trayBoom);
+    syncModule(stgForearmRef, asmElbowRef, foreJob, trayForearm);
+    syncModule(stgWristRef, asmWristRef, wristJob, trayWrist);
+    syncModule(stgLaserRef, asmLaserRef, laserJob, trayLaser);
+
+    const dockEase = smoothStep(dockProgress);
+
+    if (rootArmRef.current) {
+      rootArmRef.current.position.set(
+        THREE.MathUtils.lerp(tableX, homeBaseX, dockEase),
+        THREE.MathUtils.lerp(trayY + 0.24 * s, floorY, dockEase),
+        THREE.MathUtils.lerp(benchArmBaseZ, 0, dockEase)
+      );
+      rootArmRef.current.rotation.set(THREE.MathUtils.lerp(-Math.PI / 2, 0, dockEase), 0, 0);
+      rootArmRef.current.scale.setScalar(THREE.MathUtils.lerp(s, baseScale, dockEase));
+    }
+
+    if (asmTurretRef.current) asmTurretRef.current.rotation.y = restPose.turretYaw * dockEase;
+    if (asmShoulderRef.current) asmShoulderRef.current.rotation.z = restPose.shoulderPitch * dockEase;
+    if (asmElbowRef.current) asmElbowRef.current.rotation.z = restPose.elbowPitch * dockEase;
+    if (asmWristRef.current) asmWristRef.current.rotation.z = restPose.wristPitch * dockEase;
+
+    const jawOpen = THREE.MathUtils.lerp(1.0, restPose.gripperOpen, laserJob.placed ? 1 : laserJob.carryAlpha);
+    const jawOffset = 0.085 + jawOpen * 0.04;
+    if (asmJawLRef.current && asmJawRRef.current) {
+      asmJawLRef.current.position.z = THREE.MathUtils.damp(asmJawLRef.current.position.z, jawOffset, 12, delta);
+      asmJawRRef.current.position.z = THREE.MathUtils.damp(asmJawRRef.current.position.z, -jawOffset, 12, delta);
+    }
+
+    if (cellTablesRef.current) {
+      cellTablesRef.current.position.y = THREE.MathUtils.lerp(0, -5.0, dockEase);
+    }
+
+    if (railRef.current) {
+      railRef.current.position.set(0, THREE.MathUtils.lerp(floorY - 1.2, floorY + 0.04, dockEase), -0.05);
+      railRef.current.visible = dockProgress > 0.02;
+    }
+
+    // Smooth camera swoop: Overhead Top View -> Hero Front View
+    perspCam.position.lerpVectors(OVERHEAD_CAM_POS, FRONT_CAM_POS, dockEase);
+    perspCam.fov = THREE.MathUtils.lerp(40, 42, dockEase);
+    perspCam.lookAt(0, 0, 0);
+    perspCam.updateProjectionMatrix();
+  });
+
+  const tableW = 2.05 * cellScale;
+  const tableD = 3.25 * cellScale;
 
   return (
     <>
-      {/* MAIN CURTAIN STAGE (UNIFIED FLOOR BEEP + BRAIDED TOW CABLE + WINCH) */}
-      <div
-        ref={curtainRef}
-        className="fixed top-0 inset-x-0 h-screen z-50 bg-[#f8fafc] text-slate-900 select-none overflow-hidden studio-grid will-change-transform border-b-4 border-slate-300 shadow-2xl"
+      <ContactShadows
+        position={[0, -0.01, 0]}
+        opacity={0.28}
+        scale={14}
+        blur={2.4}
+        far={5}
+        resolution={256}
+        frames={1}
+        color="#0f172a"
+      />
+
+      {/* 2 WORKTABLES + 4 SIMULTANEOUS PICK-AND-PLACE ARMS */}
+      <group ref={cellTablesRef}>
+        {/* TABLE 1: PARTS STAGING BENCH (LEFT) */}
+        <group position={[-tableX, 0, 0]}>
+          <mesh position={[0, 0.12 * cellScale, 0]} material={graphiteChassis} castShadow receiveShadow>
+            <boxGeometry args={[tableW, 0.18 * cellScale, tableD]} />
+          </mesh>
+          <mesh position={[0, 0.22 * cellScale, 0]} material={darkRecess} receiveShadow>
+            <boxGeometry args={[tableW * 0.9, 0.03 * cellScale, tableD * 0.92]} />
+          </mesh>
+          {[-0.42, 0.42].map((px) =>
+            [-0.95, 0, 0.95].map((pz) => (
+              <mesh
+                key={`${px}_${pz}`}
+                position={[px * cellScale, 0.24 * cellScale, pz * cellScale]}
+                material={silverArmor}
+              >
+                <boxGeometry args={[0.56 * cellScale, 0.025 * cellScale, 0.68 * cellScale]} />
+              </mesh>
+            ))
+          )}
+        </group>
+
+        {/* TABLE 2: PRECISION ASSEMBLY BENCH (RIGHT) */}
+        <group position={[tableX, 0, 0]}>
+          <mesh position={[0, 0.12 * cellScale, 0]} material={graphiteChassis} castShadow receiveShadow>
+            <boxGeometry args={[tableW, 0.18 * cellScale, tableD]} />
+          </mesh>
+          <mesh position={[0, 0.22 * cellScale, 0]} material={silverArmor} receiveShadow>
+            <boxGeometry args={[tableW * 0.88, 0.03 * cellScale, tableD * 0.92]} />
+          </mesh>
+          <mesh position={[-0.38 * cellScale, 0.24 * cellScale, 0]} material={crimsonAccent}>
+            <boxGeometry args={[0.05 * cellScale, 0.04 * cellScale, tableD * 0.86]} />
+          </mesh>
+          <mesh position={[0.38 * cellScale, 0.24 * cellScale, 0]} material={crimsonAccent}>
+            <boxGeometry args={[0.05 * cellScale, 0.04 * cellScale, tableD * 0.86]} />
+          </mesh>
+        </group>
+
+        {/* 4 SPACED PICK-AND-PLACE ARMS WORKING SIMULTANEOUSLY */}
+        <PickPlaceArm
+          basePos={[-0.62 * cellScale, 0, -1.85 * cellScale]}
+          targetRef={arm1Target}
+          scale={cellScale * 0.72}
+          graphiteMat={graphiteChassis}
+          silverMat={silverArmor}
+          accentMat={crimsonAccent}
+          darkMat={darkRecess}
+        />
+        <PickPlaceArm
+          basePos={[-0.62 * cellScale, 0, 1.85 * cellScale]}
+          targetRef={arm2Target}
+          scale={cellScale * 0.72}
+          graphiteMat={graphiteChassis}
+          silverMat={silverArmor}
+          accentMat={crimsonAccent}
+          darkMat={darkRecess}
+        />
+        <PickPlaceArm
+          basePos={[0.62 * cellScale, 0, -1.85 * cellScale]}
+          targetRef={arm3Target}
+          scale={cellScale * 0.72}
+          graphiteMat={graphiteChassis}
+          silverMat={silverArmor}
+          accentMat={crimsonAccent}
+          darkMat={darkRecess}
+        />
+        <PickPlaceArm
+          basePos={[0.62 * cellScale, 0, 1.85 * cellScale]}
+          targetRef={arm4Target}
+          scale={cellScale * 0.72}
+          graphiteMat={graphiteChassis}
+          silverMat={silverArmor}
+          accentMat={crimsonAccent}
+          darkMat={darkRecess}
+        />
+      </group>
+
+      {/* INDEPENDENT WORLD-SPACE STAGING / TRANSIT PARTS (ZERO NESTING BUGS) */}
+      <group ref={stgPedestalRef} scale={armScale}>
+        <mesh position={[0, 0.22, 0]} material={graphiteChassis}>
+          <cylinderGeometry args={[0.64, 0.72, 0.44, 32]} />
+        </mesh>
+        <mesh position={[0, 0.48, 0]} material={silverArmor}>
+          <cylinderGeometry args={[0.63, 0.65, 0.08, 32]} />
+        </mesh>
+      </group>
+
+      <group ref={stgTurretRef} scale={armScale}>
+        <mesh geometry={turretShroudGeo} material={silverArmor} />
+        <mesh position={[0.05, 0.42, 0]} material={graphiteChassis}>
+          <boxGeometry args={[0.56, 0.72, 0.42]} />
+        </mesh>
+      </group>
+
+      <group ref={stgBoomRef} scale={armScale}>
+        <mesh rotation={[Math.PI / 2, 0, 0]} material={graphiteChassis}>
+          <cylinderGeometry args={[0.42, 0.42, 0.68, 28]} />
+        </mesh>
+        <mesh geometry={upperBoomGeo} material={silverArmor} />
+        <mesh position={[0, 0.72, 0]} material={graphiteChassis}>
+          <boxGeometry args={[0.36, 1.25, 0.44]} />
+        </mesh>
+      </group>
+
+      <group ref={stgForearmRef} scale={armScale}>
+        <mesh rotation={[Math.PI / 2, 0, 0]} material={graphiteChassis}>
+          <cylinderGeometry args={[0.32, 0.32, 0.5, 24]} />
+        </mesh>
+        <mesh geometry={forearmGeo} material={silverArmor} />
+        <mesh position={[0, 0.62, 0]} material={graphiteChassis}>
+          <boxGeometry args={[0.28, 1.05, 0.34]} />
+        </mesh>
+      </group>
+
+      <group ref={stgWristRef} scale={armScale}>
+        <mesh rotation={[Math.PI / 2, 0, 0]} material={graphiteChassis}>
+          <cylinderGeometry args={[0.22, 0.22, 0.38, 22]} />
+        </mesh>
+        <mesh position={[0, 0.22, 0]} material={lightTrim}>
+          <cylinderGeometry args={[0.24, 0.21, 0.12, 28]} />
+        </mesh>
+      </group>
+
+      <group ref={stgLaserRef} scale={armScale}>
+        <mesh position={[0, 0.1, 0]} material={darkRecess}>
+          <cylinderGeometry args={[0.095, 0.115, 0.22, 20]} />
+        </mesh>
+        <mesh position={[0, 0.14, 0]} material={crimsonAccent}>
+          <cylinderGeometry args={[0.105, 0.105, 0.045, 20]} />
+        </mesh>
+        <mesh position={[0, 0.26, 0]} material={copperNozzle}>
+          <cylinderGeometry args={[0.022, 0.075, 0.14, 18]} />
+        </mesh>
+        <mesh position={[0, 0.34, 0]} material={laserEmitterMat}>
+          <sphereGeometry args={[0.026, 12, 12]} />
+        </mesh>
+      </group>
+
+      {/* LINEAR GANTRY RAIL DEPLOYING AT BOTTOM FOR HERO HANDOFF */}
+      <group ref={railRef} position={[0, floorY - 1.2, -0.05]} visible={false}>
+        <mesh material={reflectiveRailMat}>
+          <boxGeometry args={[frontWidth * 0.9, 0.048, 0.42]} />
+        </mesh>
+        <mesh position={[0, 0.03, 0.16]} material={silverArmor}>
+          <boxGeometry args={[frontWidth * 0.9, 0.018, 0.045]} />
+        </mesh>
+        <mesh position={[0, 0.03, -0.16]} material={silverArmor}>
+          <boxGeometry args={[frontWidth * 0.9, 0.018, 0.045]} />
+        </mesh>
+      </group>
+
+      {/* ASSEMBLED 6-DOF HERO ARM HIERARCHY ON TABLE 2 -> RAIL DOCK */}
+      <group
+        ref={rootArmRef}
+        position={[tableX, 0.26 * cellScale + 0.24 * armScale, 1.38 * cellScale]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        scale={armScale}
       >
-        <div className="absolute top-0 inset-x-0 w-full h-screen flex items-center justify-center">
-          <Canvas
-            shadows
-            camera={{ position: [0, 0.0, 5.2], fov: 42 }}
-            gl={{ antialias: true, alpha: true }}
-            dpr={[1, 1.5]}
-          >
-            <StudioEnvironment intensity={0.28} />
-            <ambientLight intensity={1.1} />
-            <directionalLight position={[6, 9, 6]} intensity={2.1} castShadow />
-            <directionalLight position={[-6, 4, -2]} intensity={0.85} color="#38bdf8" />
-            <pointLight position={[0, 3, 2]} intensity={1.2} color="#e0f2fe" />
+        <group ref={asmPedestalRef} visible={false}>
+          <mesh position={[0, 0.22, 0]} material={graphiteChassis}>
+            <cylinderGeometry args={[0.64, 0.72, 0.44, 32]} />
+          </mesh>
+          {baseBolts.map((a, i) => (
+            <mesh
+              key={i}
+              position={[Math.cos(a) * 0.65, 0.36, Math.sin(a) * 0.65]}
+              rotation={[0, -a, Math.PI / 2]}
+              material={darkRecess}
+            >
+              <cylinderGeometry args={[0.025, 0.025, 0.04, 6]} />
+            </mesh>
+          ))}
+          <mesh position={[0, 0.48, 0]} material={silverArmor}>
+            <cylinderGeometry args={[0.63, 0.65, 0.08, 32]} />
+          </mesh>
+          {gearTeeth.map((a, i) => (
+            <mesh
+              key={i}
+              position={[Math.cos(a) * 0.64, 0.48, Math.sin(a) * 0.64]}
+              rotation={[0, -a, 0]}
+              material={graphiteChassis}
+            >
+              <boxGeometry args={[0.03, 0.075, 0.028]} />
+            </mesh>
+          ))}
+          <mesh position={[0, 0.55, 0]} material={lightTrim}>
+            <cylinderGeometry args={[0.58, 0.62, 0.06, 32]} />
+          </mesh>
+        </group>
 
-            <Suspense fallback={null}>
-              <UnifiedFloorScene stage={stage} progress={progress} />
-            </Suspense>
-          </Canvas>
-        </div>
-      </div>
+        <group ref={asmTurretRef} position={[0, 0.58, 0]} visible={false}>
+          <mesh geometry={turretShroudGeo} material={silverArmor} />
+          <mesh position={[0.05, 0.42, 0]} material={graphiteChassis}>
+            <boxGeometry args={[0.56, 0.72, 0.42]} />
+          </mesh>
 
-      {/* OVERHEAD COMPANION BOT LAYER (SAME BEEP KIT, 1:1 HOIST SYNC) */}
+          <group ref={asmShoulderRef} position={[0.02, 0.78, 0]} visible={false}>
+            <mesh rotation={[Math.PI / 2, 0, 0]} material={graphiteChassis}>
+              <cylinderGeometry args={[0.42, 0.42, 0.68, 28]} />
+            </mesh>
+            <mesh rotation={[Math.PI / 2, 0, 0]} material={lightTrim}>
+              <cylinderGeometry args={[0.35, 0.35, 0.72, 24]} />
+            </mesh>
+            {drumSlots.map((a, i) => (
+              <mesh
+                key={i}
+                position={[Math.cos(a) * 0.37, Math.sin(a) * 0.37, 0]}
+                rotation={[0, 0, a]}
+                material={darkRecess}
+              >
+                <boxGeometry args={[0.09, 0.07, 0.73]} />
+              </mesh>
+            ))}
+
+            <mesh geometry={upperBoomGeo} material={silverArmor} />
+            <mesh position={[0, 0.72, 0]} material={graphiteChassis}>
+              <boxGeometry args={[0.36, 1.25, 0.44]} />
+            </mesh>
+
+            <group ref={asmElbowRef} position={[0, 1.52, 0]} visible={false}>
+              <mesh rotation={[Math.PI / 2, 0, 0]} material={graphiteChassis}>
+                <cylinderGeometry args={[0.32, 0.32, 0.5, 24]} />
+              </mesh>
+              <mesh rotation={[Math.PI / 2, 0, 0]} material={silverArmor}>
+                <cylinderGeometry args={[0.24, 0.24, 0.54, 20]} />
+              </mesh>
+
+              <mesh geometry={forearmGeo} material={silverArmor} />
+              <mesh position={[0, 0.62, 0]} material={graphiteChassis}>
+                <boxGeometry args={[0.28, 1.05, 0.34]} />
+              </mesh>
+
+              <group ref={asmWristRef} position={[0, 1.3, 0]} visible={false}>
+                <mesh rotation={[Math.PI / 2, 0, 0]} material={graphiteChassis}>
+                  <cylinderGeometry args={[0.22, 0.22, 0.38, 22]} />
+                </mesh>
+                <mesh rotation={[Math.PI / 2, 0, 0]} material={lightTrim}>
+                  <cylinderGeometry args={[0.16, 0.16, 0.42, 20]} />
+                </mesh>
+
+                <mesh position={[0, 0.22, 0]} material={lightTrim}>
+                  <cylinderGeometry args={[0.24, 0.21, 0.12, 28]} />
+                </mesh>
+                <mesh position={[0, 0.29, 0]} material={darkRecess}>
+                  <cylinderGeometry args={[0.19, 0.19, 0.04, 24]} />
+                </mesh>
+
+                <mesh ref={asmJawLRef} position={[0, 0.38, 0.11]} material={graphiteChassis}>
+                  <boxGeometry args={[0.12, 0.18, 0.045]} />
+                </mesh>
+                <mesh ref={asmJawRRef} position={[0, 0.38, -0.11]} material={graphiteChassis}>
+                  <boxGeometry args={[0.12, 0.18, 0.045]} />
+                </mesh>
+
+                <group ref={asmLaserRef} visible={false}>
+                  <mesh position={[0, 0.4, 0]} material={darkRecess}>
+                    <cylinderGeometry args={[0.095, 0.115, 0.22, 20]} />
+                  </mesh>
+                  <mesh position={[0, 0.44, 0]} material={crimsonAccent}>
+                    <cylinderGeometry args={[0.105, 0.105, 0.045, 20]} />
+                  </mesh>
+                  <mesh position={[0, 0.56, 0]} material={copperNozzle}>
+                    <cylinderGeometry args={[0.022, 0.075, 0.14, 18]} />
+                  </mesh>
+                  <mesh position={[0, 0.64, 0]} material={laserEmitterMat}>
+                    <sphereGeometry args={[0.026, 12, 12]} />
+                  </mesh>
+                </group>
+              </group>
+            </group>
+          </group>
+        </group>
+      </group>
+    </>
+  );
+}
+
+export default function RobotLoader({ onComplete }: RobotLoaderProps) {
+  const loaderRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const pctTextRef = useRef<HTMLSpanElement>(null);
+  const [progress, setProgress] = useState(0);
+  const [phase, setPhase] = useState<LoaderPhase>('assembling');
+  const [dockProgress, setDockProgress] = useState(0);
+
+  const completedRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
+  // Minimum 10-second loading sequence (9.0s assembly + 0.5s hold + 1.0s swoop/dock + 0.2s fade = 10.7s)
+  useEffect(() => {
+    const progProxy = { val: 0 };
+    const dockProxy = { val: 0 };
+    let lastSoundTick = -1;
+
+    const tl = gsap.timeline();
+
+    tl.to(progProxy, {
+      val: 100,
+      duration: 9.0,
+      ease: 'power1.inOut',
+      onUpdate: () => {
+        const p = Math.round(progProxy.val);
+        setProgress(p);
+        if (barRef.current) {
+          gsap.set(barRef.current, { scaleX: progProxy.val / 100 });
+        }
+        if (pctTextRef.current) {
+          pctTextRef.current.textContent = `${String(p).padStart(2, '0')}%`;
+        }
+        if (p !== lastSoundTick) {
+          lastSoundTick = p;
+          if (p === 42 || p === 62 || p === 74 || p === 88) sound.playPneumatic();
+          else if (p === 98) sound.playSnap();
+          else if (p % 10 === 0 && p > 0) sound.playRotaryTick();
+        }
+      },
+    })
+      .call(() => {
+        setPhase('hold');
+        sound.playSuccess();
+      })
+      .to({}, { duration: 0.5 })
+      .call(() => {
+        setPhase('docking');
+        sound.playPneumatic();
+      })
+      .to(dockProxy, {
+        val: 1,
+        duration: 1.0,
+        ease: 'power3.inOut',
+        onUpdate: () => {
+          setDockProgress(dockProxy.val);
+        },
+      })
+      .to(loaderRef.current, {
+        opacity: 0,
+        duration: 0.2,
+        ease: 'power2.out',
+        onComplete: () => {
+          if (!completedRef.current) {
+            completedRef.current = true;
+            onCompleteRef.current?.();
+          }
+        },
+      });
+
+    return () => {
+      tl.kill();
+    };
+  }, []);
+
+  return (
+    <div
+      ref={loaderRef}
+      className="fixed inset-0 z-50 bg-[#f8fafc] text-slate-900 select-none overflow-hidden studio-grid will-change-[opacity]"
+    >
+      <Canvas
+        shadows
+        camera={{ position: [0, 7.6, 2.2], fov: 40 }}
+        gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.08 }}
+        dpr={[1, 1.5]}
+      >
+        <StudioEnvironment intensity={0.42} />
+        <ambientLight intensity={0.95} />
+        <directionalLight position={[6, 10, 6]} intensity={2.1} castShadow />
+        <directionalLight position={[-6, 6, -3]} intensity={0.9} color="#cbd5e1" />
+        <pointLight position={[0, 4, 2]} intensity={0.8} color="#ffffff" />
+
+        <Suspense fallback={null}>
+          <TwoTableAssemblyCell progress={progress} dockProgress={dockProgress} />
+        </Suspense>
+      </Canvas>
+
+      {/* TOP-LEFT ANIMATED LOADING PERCENTAGE HUD */}
       <div
-        ref={overheadLayerRef}
-        className={`fixed inset-0 z-[60] pointer-events-none will-change-transform transition-opacity duration-300 ${
-          showOverheadCanvas ? 'opacity-100' : 'opacity-0'
+        className={`fixed top-6 left-6 z-10 w-64 p-3.5 rounded-2xl bg-white/90 border border-slate-200 shadow-md transition-opacity duration-300 ${
+          phase === 'docking' ? 'opacity-0' : 'opacity-100'
         }`}
       >
-        <Canvas
-          camera={{ position: [0, 0.0, 5.2], fov: 42 }}
-          gl={{ antialias: true, alpha: true }}
-          dpr={[1, 2]}
-        >
-          <StudioEnvironment intensity={0.28} />
-          <ambientLight intensity={1.1} />
-          <directionalLight position={[6, 9, 6]} intensity={2.1} />
-          <directionalLight position={[-6, 4, -2]} intensity={0.85} color="#38bdf8" />
-          <Suspense fallback={null}>
-            <OverheadCurtainScene stage={stage} />
-          </Suspense>
-        </Canvas>
+        <div className="flex items-center justify-between font-mono text-[11px] mb-2">
+          <div className="flex items-center gap-2 text-slate-700 font-semibold">
+            <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
+            <span>{phase === 'hold' ? 'ASSEMBLY LOCKED' : '4-ARM ASSEMBLY'}</span>
+          </div>
+          <span ref={pctTextRef} className="font-black text-slate-950 tabular-nums text-xs">
+            00%
+          </span>
+        </div>
+        <div className="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
+          <div
+            ref={barRef}
+            className="h-full w-full bg-gradient-to-r from-slate-900 via-red-600 to-red-500 origin-left will-change-transform"
+            style={{ transform: 'scaleX(0)' }}
+          />
+        </div>
       </div>
-    </>
+    </div>
   );
 }
