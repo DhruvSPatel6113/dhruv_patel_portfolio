@@ -336,22 +336,28 @@ function FacetedIndustrialArm({
 
   useEffect(() => {
     const updateFromClient = (clientX: number, clientY: number) => {
-      const w = window.innerWidth || 1;
-      const h = window.innerHeight || 1;
-      pointerRef.current.x = (clientX / w) * 2 - 1;
-      pointerRef.current.y = -((clientY / h) * 2 - 1);
+      const rect = gl.domElement.getBoundingClientRect();
+      const w = rect.width || window.innerWidth || 1;
+      const h = rect.height || window.innerHeight || 1;
+      pointerRef.current.x = THREE.MathUtils.clamp(((clientX - rect.left) / w) * 2 - 1, -1, 1);
+      pointerRef.current.y = THREE.MathUtils.clamp(-(((clientY - rect.top) / h) * 2 - 1), -1, 1);
     };
-    const onPointerMove = (e: PointerEvent) => updateFromClient(e.clientX, e.clientY);
-    const onTouchMove = (e: TouchEvent) => {
-      if (e.touches[0]) updateFromClient(e.touches[0].clientX, e.touches[0].clientY);
+    const onPointerEvent = (e: PointerEvent) => updateFromClient(e.clientX, e.clientY);
+    const onTouchEvent = (e: TouchEvent) => {
+      const touch = e.touches[0] ?? e.changedTouches[0];
+      if (touch) updateFromClient(touch.clientX, touch.clientY);
     };
-    window.addEventListener('pointermove', onPointerMove, { passive: true });
-    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('pointerdown', onPointerEvent, { passive: true });
+    window.addEventListener('pointermove', onPointerEvent, { passive: true });
+    window.addEventListener('touchstart', onTouchEvent, { passive: true });
+    window.addEventListener('touchmove', onTouchEvent, { passive: true });
     return () => {
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('pointerdown', onPointerEvent);
+      window.removeEventListener('pointermove', onPointerEvent);
+      window.removeEventListener('touchstart', onTouchEvent);
+      window.removeEventListener('touchmove', onTouchEvent);
     };
-  }, []);
+  }, [gl]);
   const rayVec = useMemo(() => new THREE.Vector3(), []);
   const rayDir = useMemo(() => new THREE.Vector3(), []);
   const projVec = useMemo(() => new THREE.Vector3(), []);

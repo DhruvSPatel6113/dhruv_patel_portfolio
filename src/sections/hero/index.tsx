@@ -321,7 +321,7 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
     <section
       id="act-0"
       ref={sectionRef}
-      className="relative min-h-screen flex flex-col justify-start pt-16 pb-56 sm:justify-center sm:pt-0 sm:pb-0 overflow-visible"
+      className="relative min-h-screen flex flex-col justify-start pt-16 pb-56 sm:justify-center sm:pt-0 sm:pb-0 overflow-visible touch-pan-y"
     >
       {/* Full-Width Open-Stage Faceted Industrial Arm + Blood-Red Laser + Sparks + Cinematic Post */}
       <RoboticArmStage
