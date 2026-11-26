@@ -22,12 +22,15 @@ const RoboticArmStage = dynamic(() => import('./RoboticArmStage'), {
 interface HeroSectionProps {
   content: HeroContent;
   isActive: boolean;
+  onEngravingComplete?: () => void;
   onNavigateSection: (sectionId: string) => void;
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-export default function HeroSection({ content, isActive, onNavigateSection }: HeroSectionProps) {
+export default function HeroSection({ content, isActive, onEngravingComplete, onNavigateSection }: HeroSectionProps) {
+  const onEngravingCompleteRef = useRef(onEngravingComplete);
+  onEngravingCompleteRef.current = onEngravingComplete;
   const sectionRef = useRef<HTMLElement>(null);
   const contentZoomRef = useRef<HTMLDivElement>(null);
   const spotlightOverlayRef = useRef<HTMLDivElement>(null);
@@ -298,6 +301,10 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
       .to(ctaRef.current, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, '<')
       .call(() => {
         setIsIdleTracking(true);
+      })
+      .to({}, { duration: 1.0 })
+      .call(() => {
+        onEngravingCompleteRef.current?.();
       });
 
     return () => {

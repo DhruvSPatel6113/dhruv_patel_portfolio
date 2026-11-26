@@ -6,7 +6,6 @@ import gsap from 'gsap';
 import { portfolioData as defaultPortfolioData } from '@/data/portfolioData';
 import { PortfolioData } from '@/types';
 import { sound } from '@/utils/audio';
-import { Sparkles } from 'lucide-react';
 
 // Shared HUD & Full-Site CMS
 import CommandPalette from '@/shared/hud/CommandPalette';
@@ -27,6 +26,7 @@ const STORAGE_KEY = 'dhruv_portfolio_v2_content';
 export default function Home() {
   const siteWrapperRef = useRef<HTMLDivElement>(null);
   const [isLoadingScreen, setIsLoadingScreen] = useState(true);
+  const [isEngravingDone, setIsEngravingDone] = useState(false);
   const [activeAct, setActiveAct] = useState(0);
   const activeActRef = useRef(0);
   const [isGripperCycling, setIsGripperCycling] = useState(false);
@@ -54,9 +54,9 @@ export default function Home() {
     } catch {}
   };
 
-  // Lock page scroll while dismantled arm assembly loader is active
+  // Lock page scroll while dismantled arm assembly loader OR Hero engraving (+1s) is active
   useEffect(() => {
-    if (isLoadingScreen) {
+    if (isLoadingScreen || !isEngravingDone) {
       window.scrollTo(0, 0);
       activeActRef.current = 0;
       setActiveAct(0);
@@ -101,7 +101,7 @@ export default function Home() {
       gsap.ticker.remove(updateLenis);
       lenis.destroy();
     };
-  }, [isLoadingScreen]);
+  }, [isLoadingScreen, isEngravingDone]);
 
   // Global Stealth 2FA Hotkey: Ctrl + Shift + D
   useEffect(() => {
@@ -149,19 +149,6 @@ export default function Home() {
             : 'relative min-h-screen bg-[#f8fafc] text-slate-900 selection:bg-sky-500 selection:text-white studio-grid font-sans antialiased overflow-x-hidden'
         }
       >
-        {/* Replay Loader Button */}
-        <button
-          onClick={(e) => {
-            e.currentTarget.blur();
-            window.scrollTo(0, 0);
-            setIsLoadingScreen(true);
-          }}
-          className="fixed bottom-6 left-6 z-40 px-3 py-1.5 rounded-xl bg-white/90 backdrop-blur-md border border-slate-200 text-[11px] font-mono text-slate-700 hover:text-sky-600 shadow-md transition-all flex items-center gap-1.5 pointer-events-auto"
-        >
-          <Sparkles size={12} className="text-sky-500" />
-          <span>REPLAY ROBOT LOADER</span>
-        </button>
-
         <CommandPalette
           isOpen={isCommandPaletteOpen}
           onClose={() => setIsCommandPaletteOpen(false)}
@@ -174,6 +161,7 @@ export default function Home() {
           <HeroSection
             content={siteContent.hero}
             isActive={!isLoadingScreen}
+            onEngravingComplete={() => setIsEngravingDone(true)}
             onNavigateSection={handleNavigateSection}
           />
           <StorySection chapters={siteContent.chapters} onTriggerActuator={handleTriggerActuator} />
