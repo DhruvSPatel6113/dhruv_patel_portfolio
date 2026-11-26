@@ -29,10 +29,12 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 
 export default function HeroSection({ content, isActive, onNavigateSection }: HeroSectionProps) {
   const sectionRef = useRef<HTMLElement>(null);
+  const spotlightOverlayRef = useRef<HTMLDivElement>(null);
   const badgeRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const headlineRef = useRef<HTMLParagraphElement>(null);
   const ctaRef = useRef<HTMLDivElement>(null);
+
   const hasPlayedEngraveRef = useRef(false);
   const [isIdleTracking, setIsIdleTracking] = useState(false);
 
@@ -52,6 +54,7 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
 
   const laserTargetRef = useRef<LaserEngraveTarget>({
     active: false,
+    fireLaser: false,
     screenX: 0,
     screenY: 0,
     baseBiasX: 0,
@@ -62,7 +65,9 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
       hasPlayedEngraveRef.current = false;
       setIsIdleTracking(false);
       laserTargetRef.current.active = false;
+      laserTargetRef.current.fireLaser = false;
 
+      if (spotlightOverlayRef.current) gsap.set(spotlightOverlayRef.current, { opacity: 0 });
       if (titleRef.current) gsap.set(titleRef.current, { opacity: 0 });
       if (headlineRef.current) gsap.set(headlineRef.current, { opacity: 0 });
       if (badgeRef.current) gsap.set(badgeRef.current, { opacity: 0, y: 10 });
@@ -84,12 +89,13 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
     const secEl = sectionRef.current;
     const titleEl = titleRef.current;
     const headEl = headlineRef.current;
-    if (!secEl || !titleEl || !headEl) return;
+    const overlayEl = spotlightOverlayRef.current;
+    if (!secEl || !titleEl || !headEl || !overlayEl) return;
 
     gsap.set(titleEl, { opacity: 1 });
     gsap.set(headEl, { opacity: 1 });
+    gsap.set(overlayEl, { opacity: 0 });
 
-    // Split title & headline using GSAP SplitText
     const splitTitle = SplitText.create(titleEl, {
       type: 'words, chars',
       tag: 'span',
@@ -102,7 +108,6 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
     const secRect = secEl.getBoundingClientRect();
     const createdSvgs: SVGSVGElement[] = [];
 
-    // Prepare each title character with transparent text + exact glyph stroke SVG overlay
     const charJobs: Array<{
       charEl: HTMLElement;
       svgEl: SVGSVGElement;
@@ -136,11 +141,11 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
         const p = document.createElementNS(SVG_NS, 'path');
         p.setAttribute('d', d);
         p.setAttribute('fill', 'none');
-        p.setAttribute('stroke', '#0ea5e9');
+        p.setAttribute('stroke', '#38bdf8');
         p.setAttribute('stroke-width', '8');
         p.setAttribute('stroke-linecap', 'round');
         p.setAttribute('stroke-linejoin', 'round');
-        p.style.filter = 'drop-shadow(0 0 4px rgba(14,165,233,0.7))';
+        p.style.filter = 'drop-shadow(0 0 6px rgba(56,189,248,0.9))';
         svg.appendChild(p);
         return p;
       });
@@ -159,29 +164,41 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
       });
     });
 
-    // Hide headline chars initially
-    gsap.set(splitHead.chars, { opacity: 0, color: '#0ea5e9' });
+    gsap.set(splitHead.chars, { opacity: 0, color: '#38bdf8' });
+
+    const setSpotlight = (sx: number, sy: number) => {
+      if (!overlayEl || !sectionRef.current) return;
+      const liveSec = sectionRef.current.getBoundingClientRect();
+      overlayEl.style.setProperty('--lx', `${liveSec.left + sx}px`);
+      overlayEl.style.setProperty('--ly', `${liveSec.top + sy}px`);
+    };
 
     const tl = gsap.timeline();
 
-    // 1. Move robotic arm carriage to first character start point
+    // 1. Fade in very dark backdrop with focused laser spotlight + move arm to first char
     if (charJobs.length > 0) {
+      setSpotlight(charJobs[0].startX, charJobs[0].startY);
       tl.call(() => {
         laserTargetRef.current = {
           active: true,
+          fireLaser: true,
           screenX: charJobs[0].startX,
           screenY: charJobs[0].startY,
           baseBiasX: -0.25,
         };
         sound.playPneumatic();
-      }).to({}, { duration: 0.42 });
+      }).to(overlayEl, {
+        opacity: 1,
+        duration: 0.45,
+        ease: 'power2.out',
+      });
     }
 
-    // 2. Trace each character stroke-by-stroke along its actual shape!
+    // 2. Trace each title character stroke-by-stroke inside the focused laser spotlight
     charJobs.forEach((job) => {
       job.paths.forEach((pathEl, strokeIdx) => {
         const totalLen = Math.max(1, pathEl.getTotalLength());
-        const strokeDuration = Math.min(0.16, Math.max(0.08, totalLen / 950));
+        const strokeDuration = Math.min(0.15, Math.max(0.075, totalLen / 980));
 
         tl.fromTo(
           pathEl,
@@ -203,44 +220,53 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
                 const sy = pt.x * ctm.b + pt.y * ctm.d + ctm.f - liveSec.top;
                 laserTargetRef.current.screenX = sx;
                 laserTargetRef.current.screenY = sy;
+                setSpotlight(sx, sy);
               }
             },
           }
         );
       });
 
-      // Solidify engraved character with thermal sky-blue -> slate-950 flash & fade vector trace
       tl.fromTo(
         job.charEl,
-        { color: '#0ea5e9' },
+        { color: '#38bdf8' },
         { color: '#020617', duration: 0.14, ease: 'power2.out', immediateRender: false }
       ).to(job.svgEl, { opacity: 0, duration: 0.12 }, '<');
     });
 
-    // 3. Engrave headline character-by-character with laser pointer tracking each char
+    // 3. Engrave headline character-by-character inside the focused spotlight
     splitHead.chars.forEach((node) => {
       const charEl = node as HTMLElement;
       tl.to(charEl, {
         opacity: 1,
         color: '#475569',
-        duration: 0.025,
+        duration: 0.024,
         ease: 'none',
         onStart: () => {
           if (!sectionRef.current) return;
           const liveSec = sectionRef.current.getBoundingClientRect();
           const r = charEl.getBoundingClientRect();
-          laserTargetRef.current.screenX = r.left - liveSec.left + r.width * 0.5;
-          laserTargetRef.current.screenY = r.top - liveSec.top + r.height * 0.5;
+          const sx = r.left - liveSec.left + r.width * 0.5;
+          const sy = r.top - liveSec.top + r.height * 0.5;
+          laserTargetRef.current.screenX = sx;
+          laserTargetRef.current.screenY = sy;
+          setSpotlight(sx, sy);
         },
       });
     });
 
-    // 4. Turn off laser, reveal badge + CTAs, return carriage to home & enable cursor tracking
+    // 4. Turn off laser, fade out dark overlay, reveal badge + CTAs & return arm home
     tl.call(() => {
       laserTargetRef.current.active = false;
+      laserTargetRef.current.fireLaser = false;
       sound.playSuccess();
     })
-      .to(badgeRef.current, { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out' })
+      .to(overlayEl, {
+        opacity: 0,
+        duration: 0.5,
+        ease: 'power2.inOut',
+      })
+      .to(badgeRef.current, { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out' }, '-=0.25')
       .to(ctaRef.current, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, '<')
       .call(() => {
         setIsIdleTracking(true);
@@ -266,6 +292,26 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
         laserTargetRef={laserTargetRef}
         isIdleTracking={isIdleTracking}
       />
+
+      {/* Realistic Light Diffusion & Dimness Overlay (Fades In -> Tracks Laser -> Fades Out) */}
+      <div
+        ref={spotlightOverlayRef}
+        className="fixed inset-0 z-30 pointer-events-none opacity-0 will-change-[opacity]"
+        style={{
+          background:
+            'radial-gradient(circle 220px at var(--lx, 30%) var(--ly, 45%), rgba(224, 242, 254, 0.06) 0%, rgba(56, 189, 248, 0.11) 20%, rgba(15, 23, 42, 0.36) 46%, rgba(8, 13, 26, 0.64) 72%, rgba(4, 8, 18, 0.80) 100%)',
+          backdropFilter: 'brightness(0.88)',
+        }}
+      >
+        {/* Soft optical laser scatter halo */}
+        <div
+          className="absolute inset-0 mix-blend-screen"
+          style={{
+            background:
+              'radial-gradient(circle 145px at var(--lx, 30%) var(--ly, 45%), rgba(125, 211, 252, 0.22) 0%, rgba(14, 165, 233, 0.08) 45%, transparent 100%)',
+          }}
+        />
+      </div>
 
       {/* Ultra-Clean, Focused Left-Aligned Hero Content */}
       <div className="relative z-10 max-w-xl space-y-6 pointer-events-auto">

@@ -14,6 +14,7 @@ export interface ArmPoseState {
 
 export interface LaserEngraveTarget {
   active: boolean;
+  fireLaser?: boolean;
   screenX: number;
   screenY: number;
   baseBiasX: number; // -1..1 normalized desired base offset or target world X hint
@@ -345,7 +346,7 @@ function FacetedIndustrialArm({
 
     // Update laser beam geometry & contact spark cluster directly to exact targetWorldPos
     if (laserBeamGroupRef.current && laserNozzleRef.current) {
-      if (laser.active) {
+      if (laser.active && laser.fireLaser !== false) {
         laserNozzleRef.current.updateWorldMatrix(true, false);
         laserNozzleRef.current.getWorldPosition(nozzleWorldPos);
 
