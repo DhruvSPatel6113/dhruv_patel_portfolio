@@ -37,7 +37,7 @@ export default function StorySection({ chapters, onTriggerActuator }: StorySecti
             </div>
 
             <div className="lg:col-span-6">
-              <TiltCard className="bg-white/85 backdrop-blur-xl p-8 rounded-3xl border border-slate-200 shadow-md space-y-5 text-slate-700 text-sm sm:text-base leading-relaxed">
+              <TiltCard className="bg-white/95 p-8 rounded-3xl border border-slate-200 shadow-md space-y-5 text-slate-700 text-sm sm:text-base leading-relaxed">
                 {chapter.narrativeText.map((para, pIdx) => (
                   <p key={pIdx}>{para}</p>
                 ))}

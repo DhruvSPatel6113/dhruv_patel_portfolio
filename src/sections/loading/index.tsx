@@ -393,8 +393,10 @@ function UnifiedFloorScene({
         position={[0, floorY - 0.01, 0]}
         opacity={0.38}
         scale={Math.max(10, viewport.width * 1.4)}
-        blur={2.4}
+        blur={2.2}
         far={4}
+        resolution={256}
+        frames={24}
         color="#0f172a"
       />
     </group>
@@ -605,7 +607,7 @@ export default function RobotLoader({ onComplete, siteRef }: RobotLoaderProps) {
             shadows
             camera={{ position: [0, 0.0, 5.2], fov: 42 }}
             gl={{ antialias: true, alpha: true }}
-            dpr={[1, 2]}
+            dpr={[1, 1.5]}
           >
             <StudioEnvironment intensity={0.28} />
             <ambientLight intensity={1.1} />

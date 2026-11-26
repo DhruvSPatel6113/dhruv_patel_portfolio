@@ -40,6 +40,18 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
 
   const hasPlayedEngraveRef = useRef(false);
   const [isIdleTracking, setIsIdleTracking] = useState(false);
+  const [isInView, setIsInView] = useState(true);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsInView(entry.isIntersecting),
+      { threshold: 0.02 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const nameParts = useMemo(() => {
     const parts = content.name.trim().split(/\s+/);
@@ -151,7 +163,6 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
         p.setAttribute('stroke-width', '8');
         p.setAttribute('stroke-linecap', 'round');
         p.setAttribute('stroke-linejoin', 'round');
-        p.style.filter = 'drop-shadow(0 0 8px rgba(220,38,38,0.95))';
         svg.appendChild(p);
         return p;
       });
@@ -172,11 +183,25 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
 
     gsap.set(splitHead.chars, { opacity: 0, color: '#ef4444' });
 
+    // Pre-cache headline character coordinates once to avoid layout thrashing during engraving
+    const zoomRect = contentZoomRef.current?.getBoundingClientRect();
+    const zoomOriginX = zoomRect ? zoomRect.left + zoomRect.width * 0.2 : secRect.left;
+    const zoomOriginY = zoomRect ? zoomRect.top + zoomRect.height * 0.42 : secRect.top;
+    const headCharCoords = splitHead.chars.map((node) => {
+      const r = (node as HTMLElement).getBoundingClientRect();
+      const cx = r.left + r.width * 0.5;
+      const cy = r.top + r.height * 0.5;
+      return {
+        el: node as HTMLElement,
+        sx: zoomOriginX + (cx - zoomOriginX) * 1.07 - secRect.left,
+        sy: zoomOriginY + (cy - zoomOriginY) * 1.07 - secRect.top,
+      };
+    });
+
     const setSpotlight = (sx: number, sy: number) => {
-      if (!overlayEl || !sectionRef.current) return;
-      const liveSec = sectionRef.current.getBoundingClientRect();
-      overlayEl.style.setProperty('--lx', `${liveSec.left + sx}px`);
-      overlayEl.style.setProperty('--ly', `${liveSec.top + sy}px`);
+      if (!overlayEl) return;
+      overlayEl.style.setProperty('--lx', `${secRect.left + sx}px`);
+      overlayEl.style.setProperty('--ly', `${secRect.top + sy}px`);
     };
 
     const tl = gsap.timeline();
@@ -224,10 +249,9 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
               const prog = this.progress();
               const pt = pathEl.getPointAtLength(totalLen * prog);
               const ctm = pathEl.getScreenCTM();
-              if (ctm && sectionRef.current) {
-                const liveSec = sectionRef.current.getBoundingClientRect();
-                const sx = pt.x * ctm.a + pt.y * ctm.c + ctm.e - liveSec.left;
-                const sy = pt.x * ctm.b + pt.y * ctm.d + ctm.f - liveSec.top;
+              if (ctm) {
+                const sx = pt.x * ctm.a + pt.y * ctm.c + ctm.e - secRect.left;
+                const sy = pt.x * ctm.b + pt.y * ctm.d + ctm.f - secRect.top;
                 laserTargetRef.current.screenX = sx;
                 laserTargetRef.current.screenY = sy;
                 setSpotlight(sx, sy);
@@ -245,20 +269,14 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
       ).to(job.svgEl, { opacity: 0, duration: 0.12 }, '<');
     });
 
-    // 3. Engrave headline character-by-character inside focused spotlight
-    splitHead.chars.forEach((node) => {
-      const charEl = node as HTMLElement;
+    // 3. Engrave headline character-by-character inside focused spotlight (zero reflow)
+    headCharCoords.forEach(({ el: charEl, sx, sy }) => {
       tl.to(charEl, {
         opacity: 1,
         color: '#475569',
         duration: 0.024,
         ease: 'none',
         onStart: () => {
-          if (!sectionRef.current) return;
-          const liveSec = sectionRef.current.getBoundingClientRect();
-          const r = charEl.getBoundingClientRect();
-          const sx = r.left - liveSec.left + r.width * 0.5;
-          const sy = r.top - liveSec.top + r.height * 0.5;
           laserTargetRef.current.screenX = sx;
           laserTargetRef.current.screenY = sy;
           setSpotlight(sx, sy);
@@ -301,6 +319,7 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
         armPoseRef={armPoseRef}
         laserTargetRef={laserTargetRef}
         isIdleTracking={isIdleTracking}
+        isInView={isInView}
       />
 
       {/* 2.39:1 Cinematic Letterbox Bars */}
@@ -321,8 +340,7 @@ export default function HeroSection({ content, isActive, onNavigateSection }: He
         className="fixed inset-0 z-30 pointer-events-none opacity-0 will-change-[opacity]"
         style={{
           background:
-            'radial-gradient(circle 210px at var(--lx, 30%) var(--ly, 45%), rgba(254, 226, 226, 0.04) 0%, rgba(239, 68, 68, 0.12) 18%, rgba(15, 23, 42, 0.48) 44%, rgba(6, 10, 20, 0.80) 70%, rgba(2, 4, 10, 0.95) 100%)',
-          backdropFilter: 'brightness(0.66) contrast(1.08)',
+            'radial-gradient(circle 210px at var(--lx, 30%) var(--ly, 45%), rgba(254, 226, 226, 0.03) 0%, rgba(239, 68, 68, 0.12) 18%, rgba(12, 18, 34, 0.54) 44%, rgba(5, 8, 18, 0.84) 70%, rgba(2, 4, 10, 0.95) 100%)',
         }}
       >
         {/* Blood-red optical scatter halo */}

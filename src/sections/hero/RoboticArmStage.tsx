@@ -131,7 +131,7 @@ function CinematicPostStack({ laserTargetRef }: { laserTargetRef: React.MutableR
     const rt = new THREE.WebGLRenderTarget(size.width, size.height, {
       type: THREE.HalfFloatType,
       format: THREE.RGBAFormat,
-      samples: 4,
+      samples: 0,
     });
     const composer = new EffectComposer(gl, rt);
     composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -166,13 +166,21 @@ function CinematicPostStack({ laserTargetRef }: { laserTargetRef: React.MutableR
   useFrame((state, delta) => {
     if (!composerRef.current || !passRef.current) return;
     const isFiring = laserTargetRef.current.active && laserTargetRef.current.fireLaser !== false;
-    passRef.current.uniforms.uTime.value = state.clock.elapsedTime + 1.0;
-    passRef.current.uniforms.uIntensity.value = THREE.MathUtils.damp(
+    const nextIntensity = THREE.MathUtils.damp(
       passRef.current.uniforms.uIntensity.value,
       isFiring ? 1.0 : 0.0,
       6,
       delta
     );
+    passRef.current.uniforms.uIntensity.value = nextIntensity;
+
+    // Bypass post-processing composer when idle so cursor tracking runs at full 60fps
+    if (!isFiring && nextIntensity <= 0.002) {
+      gl.render(scene, camera);
+      return;
+    }
+
+    passRef.current.uniforms.uTime.value = state.clock.elapsedTime + 1.0;
     composerRef.current.render(delta);
   }, 1);
 
@@ -348,6 +356,7 @@ function FacetedIndustrialArm({
   const beamMid = useMemo(() => new THREE.Vector3(), []);
   const upAxis = useMemo(() => new THREE.Vector3(0, 1, 0), []);
   const beamQuat = useMemo(() => new THREE.Quaternion(), []);
+  const arcLightOffset = useMemo(() => new THREE.Vector3(0, 0, 0.35), []);
 
   const silverArmor = useMemo(
     () =>
@@ -642,7 +651,7 @@ function FacetedIndustrialArm({
 
     // Dynamic blood-red PointLight for environment reflections on arm & rail
     if (arcLightRef.current) {
-      arcLightRef.current.position.copy(targetWorldPos.current).add(new THREE.Vector3(0, 0, 0.35));
+      arcLightRef.current.position.copy(targetWorldPos.current).add(arcLightOffset);
       const targetInt = activeFiring ? 5.5 + Math.sin(elapsed * 52) * 1.4 : 0;
       arcLightRef.current.intensity = THREE.MathUtils.damp(arcLightRef.current.intensity, targetInt, 18, delta);
     }
@@ -869,19 +878,22 @@ export default function RoboticArmStage({
   armPoseRef,
   laserTargetRef,
   isIdleTracking,
+  isInView = true,
   onGripperScreenPos,
 }: {
   armPoseRef: React.MutableRefObject<ArmPoseState>;
   laserTargetRef: React.MutableRefObject<LaserEngraveTarget>;
   isIdleTracking: boolean;
+  isInView?: boolean;
   onGripperScreenPos?: (x: number, y: number) => void;
 }) {
   return (
     <div className="absolute inset-0 z-20 pointer-events-none">
       <Canvas
+        frameloop={isInView ? 'always' : 'demand'}
         camera={{ position: [0, 0.0, 5.5], fov: 42 }}
         gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.08 }}
-        dpr={[1, 2]}
+        dpr={[1, 1.5]}
       >
         <StudioEnvironment intensity={0.38} />
         <ambientLight intensity={0.95} />

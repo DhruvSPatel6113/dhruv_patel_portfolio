@@ -27,8 +27,8 @@ const STORAGE_KEY = 'dhruv_portfolio_v2_content';
 export default function Home() {
   const siteWrapperRef = useRef<HTMLDivElement>(null);
   const [isLoadingScreen, setIsLoadingScreen] = useState(true);
-  const [scrollProgress, setScrollProgress] = useState(0);
   const [activeAct, setActiveAct] = useState(0);
+  const activeActRef = useRef(0);
   const [isGripperCycling, setIsGripperCycling] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSecretCMSOpen, setIsSecretCMSOpen] = useState(false);
@@ -58,7 +58,7 @@ export default function Home() {
   useEffect(() => {
     if (isLoadingScreen) {
       window.scrollTo(0, 0);
-      setScrollProgress(0);
+      activeActRef.current = 0;
       setActiveAct(0);
       document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
@@ -79,26 +79,26 @@ export default function Home() {
       touchMultiplier: 1.8,
     });
 
-    let rafId: number;
-    function raf(time: number) {
-      lenis.raf(time);
-      rafId = requestAnimationFrame(raf);
-    }
-    rafId = requestAnimationFrame(raf);
+    const updateLenis = (time: number) => {
+      lenis.raf(time * 1000);
+    };
+    gsap.ticker.add(updateLenis);
+    gsap.ticker.lagSmoothing(0);
 
     const handleScroll = () => {
       const totalScroll = document.documentElement.scrollHeight - window.innerHeight;
       const progress = totalScroll > 0 ? Math.min(1, Math.max(0, window.scrollY / totalScroll)) : 0;
-      setScrollProgress(progress);
-
       const act = Math.min(7, Math.floor(progress * 8));
-      setActiveAct(act);
+      if (act !== activeActRef.current) {
+        activeActRef.current = act;
+        setActiveAct(act);
+      }
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      cancelAnimationFrame(rafId);
+      gsap.ticker.remove(updateLenis);
       lenis.destroy();
     };
   }, [isLoadingScreen]);

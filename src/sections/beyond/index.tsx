@@ -38,7 +38,7 @@ export default function BeyondSection({ items }: BeyondSectionProps) {
           return (
             <div
               key={item.id}
-              className="bg-white/85 backdrop-blur-xl p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all space-y-3"
+              className="bg-white/95 p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all space-y-3"
             >
               <div className="flex items-center justify-between">
                 <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center">

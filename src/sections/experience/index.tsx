@@ -80,7 +80,7 @@ export default function ExperienceSection({ items }: ExperienceSectionProps) {
           return (
             <div
               key={item.id}
-              className="bg-white/90 backdrop-blur-xl p-7 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-5"
+              className="bg-white/95 p-7 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-5"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">

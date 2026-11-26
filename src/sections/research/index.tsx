@@ -30,7 +30,7 @@ export default function ResearchSection({ items }: ResearchSectionProps) {
         {items.map((paper) => (
           <TiltCard
             key={paper.id}
-            className="bg-white/90 backdrop-blur-xl p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-md space-y-6"
+            className="bg-white/95 p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-md space-y-6"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-xs font-bold">
