@@ -309,7 +309,7 @@ function FacetedIndustrialArm({
   isIdleTracking,
   onGripperScreenPos,
 }: RoboticArmProps) {
-  const { viewport, camera, size } = useThree();
+  const { viewport, camera, size, gl } = useThree();
 
   const { baseScale, homeBaseX, floorY } = getArmLayout(viewport);
 
@@ -344,6 +344,8 @@ function FacetedIndustrialArm({
     window.addEventListener('pointermove', onPointerMove, { passive: true });
     return () => window.removeEventListener('pointermove', onPointerMove);
   }, []);
+  const rayVec = useMemo(() => new THREE.Vector3(), []);
+  const rayDir = useMemo(() => new THREE.Vector3(), []);
   const projVec = useMemo(() => new THREE.Vector3(), []);
   const nozzleWorldPos = useMemo(() => new THREE.Vector3(), []);
   const targetWorldPos = useRef(new THREE.Vector3());
@@ -481,9 +483,17 @@ function FacetedIndustrialArm({
     isFiringRef.current = activeFiring;
 
     if (laser.active && size.width > 0 && size.height > 0) {
-      const worldTx = (laser.screenX / size.width - 0.5) * viewport.width;
-      const worldTy = -(laser.screenY / size.height - 0.5) * viewport.height;
-      targetWorldPos.current.set(worldTx, worldTy, 0.02);
+      // Exact live camera.unproject() ray-plane intersection on z = 0.02 using viewport clientX/clientY
+      const canvasW = gl.domElement.clientWidth || size.width;
+      const canvasH = gl.domElement.clientHeight || size.height;
+      const ndcX = (laser.screenX / canvasW) * 2 - 1;
+      const ndcY = -(laser.screenY / canvasH) * 2 + 1;
+      rayVec.set(ndcX, ndcY, 0.5).unproject(perspCam);
+      rayDir.subVectors(rayVec, perspCam.position).normalize();
+      const tPlane = (0.02 - perspCam.position.z) / (rayDir.z || -1);
+      targetWorldPos.current.copy(perspCam.position).addScaledVector(rayDir, tPlane);
+      const worldTx = targetWorldPos.current.x;
+      const worldTy = targetWorldPos.current.y;
 
       const minRailX = -viewport.width * 0.34;
       const maxRailX = viewport.width * 0.32;
@@ -517,14 +527,14 @@ function FacetedIndustrialArm({
       targetWrist = THREE.MathUtils.clamp(0.35 - targetShoulder * 0.3, -0.8, 0.8);
       targetYaw = THREE.MathUtils.clamp((worldTx - currentBaseXRef.current) * 0.12, -0.32, 0.32);
 
-      // Cinematic camera zoom-in tracking the character being engraved
+      // Harmonized cinematic camera zoom-in tracking the character being engraved
       if (activeFiring) {
-        const camGoalX = THREE.MathUtils.clamp(worldTx * 0.38, -1.2, 1.2);
-        const camGoalY = THREE.MathUtils.clamp(worldTy * 0.35, -0.7, 0.7);
+        const camGoalX = THREE.MathUtils.clamp(worldTx * 0.25, -0.8, 0.8);
+        const camGoalY = THREE.MathUtils.clamp(worldTy * 0.25, -0.5, 0.5);
         perspCam.position.x = THREE.MathUtils.damp(perspCam.position.x, camGoalX, 3.8, delta);
         perspCam.position.y = THREE.MathUtils.damp(perspCam.position.y, camGoalY, 3.8, delta);
-        perspCam.position.z = THREE.MathUtils.damp(perspCam.position.z, 3.95, 3.5, delta);
-        perspCam.fov = THREE.MathUtils.damp(perspCam.fov, 35, 3.5, delta);
+        perspCam.position.z = THREE.MathUtils.damp(perspCam.position.z, 4.65, 3.5, delta);
+        perspCam.fov = THREE.MathUtils.damp(perspCam.fov, 38, 3.5, delta);
         perspCam.updateProjectionMatrix();
       }
     } else {

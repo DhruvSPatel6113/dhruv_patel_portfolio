@@ -179,14 +179,14 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
         charEl,
         svgEl: svg,
         paths,
-        startX: cRect.left - secRect.left + cRect.width * 0.25,
-        startY: cRect.top - secRect.top + cRect.height * 0.25,
+        startX: cRect.left + cRect.width * 0.25,
+        startY: cRect.top + cRect.height * 0.25,
       });
     });
 
     gsap.set(splitHead.chars, { opacity: 0, color: '#ef4444' });
 
-    // Pre-cache headline character coordinates once to avoid layout thrashing during engraving
+    // Pre-cache headline character client coordinates once to avoid layout thrashing during engraving
     const zoomRect = contentZoomRef.current?.getBoundingClientRect();
     const zoomOriginX = zoomRect ? zoomRect.left + zoomRect.width * 0.2 : secRect.left;
     const zoomOriginY = zoomRect ? zoomRect.top + zoomRect.height * 0.42 : secRect.top;
@@ -196,15 +196,15 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
       const cy = r.top + r.height * 0.5;
       return {
         el: node as HTMLElement,
-        sx: zoomOriginX + (cx - zoomOriginX) * 1.07 - secRect.left,
-        sy: zoomOriginY + (cy - zoomOriginY) * 1.07 - secRect.top,
+        sx: zoomOriginX + (cx - zoomOriginX) * 1.12,
+        sy: zoomOriginY + (cy - zoomOriginY) * 1.12,
       };
     });
 
-    const setSpotlight = (sx: number, sy: number) => {
+    const setSpotlight = (cx: number, cy: number) => {
       if (!overlayEl) return;
-      overlayEl.style.setProperty('--lx', `${secRect.left + sx}px`);
-      overlayEl.style.setProperty('--ly', `${secRect.top + sy}px`);
+      overlayEl.style.setProperty('--lx', `${cx}px`);
+      overlayEl.style.setProperty('--ly', `${cy}px`);
     };
 
     const tl = gsap.timeline();
@@ -227,7 +227,7 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
         .to(bottomCinemaBarRef.current, { yPercent: 0, duration: 0.45, ease: 'power3.out' }, '<')
         .to(
           contentZoomRef.current,
-          { scale: 1.07, duration: 0.6, ease: 'power2.out', transformOrigin: '20% 42%' },
+          { scale: 1.12, duration: 0.6, ease: 'power2.out', transformOrigin: '20% 42%' },
           '<'
         );
     }
@@ -253,11 +253,11 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
               const pt = pathEl.getPointAtLength(totalLen * prog);
               const ctm = pathEl.getScreenCTM();
               if (ctm) {
-                const sx = pt.x * ctm.a + pt.y * ctm.c + ctm.e - secRect.left;
-                const sy = pt.x * ctm.b + pt.y * ctm.d + ctm.f - secRect.top;
-                laserTargetRef.current.screenX = sx;
-                laserTargetRef.current.screenY = sy;
-                setSpotlight(sx, sy);
+                const cx = pt.x * ctm.a + pt.y * ctm.c + ctm.e;
+                const cy = pt.x * ctm.b + pt.y * ctm.d + ctm.f;
+                laserTargetRef.current.screenX = cx;
+                laserTargetRef.current.screenY = cy;
+                setSpotlight(cx, cy);
               }
             },
           }
@@ -341,13 +341,13 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
         style={{ transform: 'translateY(100%)' }}
       />
 
-      {/* 0.95 Dark Optical Diffusion Layer + Blood-Red Scatter & Anamorphic Refractive Flare */}
+      {/* Pure Black (#000000) Optical Surround + Focused Laser Spotlight */}
       <div
         ref={spotlightOverlayRef}
         className="fixed inset-0 z-40 pointer-events-none opacity-0 will-change-[opacity]"
         style={{
           background:
-            'radial-gradient(circle 210px at var(--lx, 30%) var(--ly, 45%), rgba(254, 226, 226, 0.03) 0%, rgba(239, 68, 68, 0.12) 18%, rgba(12, 18, 34, 0.54) 44%, rgba(5, 8, 18, 0.84) 70%, rgba(2, 4, 10, 0.95) 100%)',
+            'radial-gradient(circle 195px at var(--lx, 30%) var(--ly, 45%), rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.25) 35%, rgba(0, 0, 0, 0.78) 65%, #000000 88%, #000000 100%)',
         }}
       >
         {/* Blood-red optical scatter halo */}
