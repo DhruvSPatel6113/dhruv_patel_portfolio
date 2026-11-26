@@ -331,6 +331,7 @@ function FacetedIndustrialArm({
   const arcLightRef = useRef<THREE.PointLight>(null);
 
   const isFiringRef = useRef(false);
+  const facingRightRef = useRef(false);
   const projVec = useMemo(() => new THREE.Vector3(), []);
   const nozzleWorldPos = useMemo(() => new THREE.Vector3(), []);
   const targetWorldPos = useRef(new THREE.Vector3());
@@ -527,22 +528,27 @@ function FacetedIndustrialArm({
 
         const { x, y } = state.pointer;
         const safeMinX = -viewport.width * 0.34;
-        const safeMaxX = viewport.width * 0.4;
+        const safeMaxX = viewport.width * 0.46;
         const safeMinY = floorY + 0.85 * baseScale;
         const safeMaxY = viewport.height * 0.34;
 
-        const worldTx = THREE.MathUtils.clamp(x * (viewport.width * 0.45), safeMinX, safeMaxX);
+        const worldTx = THREE.MathUtils.clamp(x * (viewport.width * 0.48), safeMinX, safeMaxX);
         const worldTy = THREE.MathUtils.clamp(y * (viewport.height * 0.42), safeMinY, safeMaxY);
 
         const shoulderWorldY = floorY + 1.36 * baseScale;
         const dx = (worldTx - currentBaseXRef.current) / baseScale;
         const dy = (worldTy - shoulderWorldY) / baseScale;
 
+        // Hysteresis deadband prevents turret jitter when cursor crosses directly over base center
+        if (dx > 0.12) facingRightRef.current = true;
+        else if (dx < -0.12) facingRightRef.current = false;
+
+        const horizDx = Math.abs(dx);
         const L1 = 1.52;
         const L2 = 1.82;
         const maxReach = (L1 + L2) * 0.88;
         const minReach = 0.75;
-        const dist = THREE.MathUtils.clamp(Math.hypot(dx, dy), minReach, maxReach);
+        const dist = THREE.MathUtils.clamp(Math.hypot(horizDx, dy), minReach, maxReach);
 
         const cosElbow = THREE.MathUtils.clamp(
           (dist * dist - L1 * L1 - L2 * L2) / (2 * L1 * L2),
@@ -550,13 +556,16 @@ function FacetedIndustrialArm({
           0.96
         );
         const elbowAngle = Math.acos(cosElbow);
-        const angleToTarget = Math.atan2(-dx, dy);
+        const angleToTarget = Math.atan2(horizDx, dy);
         const alpha = Math.atan2(L2 * Math.sin(elbowAngle), L1 + L2 * Math.cos(elbowAngle));
 
-        targetShoulder = THREE.MathUtils.clamp(angleToTarget - alpha, -0.55, 0.95);
+        targetShoulder = THREE.MathUtils.clamp(angleToTarget - alpha, -0.35, 1.05);
         targetElbow = THREE.MathUtils.clamp(elbowAngle, 0.35, 1.95);
         targetWrist = THREE.MathUtils.clamp(0.15 - targetShoulder * 0.35, -0.7, 0.6);
-        targetYaw = THREE.MathUtils.clamp(x * 0.22, -0.3, 0.3);
+
+        // Twist turret 180 deg when cursor moves past the right side of the arm base
+        const subtleYaw = THREE.MathUtils.clamp(y * 0.18, -0.25, 0.25);
+        targetYaw = facingRightRef.current ? Math.PI - subtleYaw : subtleYaw;
       } else {
         currentBaseXRef.current = THREE.MathUtils.damp(currentBaseXRef.current, homeBaseX, 5, delta);
       }
