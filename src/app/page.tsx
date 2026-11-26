@@ -151,7 +151,8 @@ export default function Home() {
       >
         {/* Replay Loader Button */}
         <button
-          onClick={() => {
+          onClick={(e) => {
+            e.currentTarget.blur();
             window.scrollTo(0, 0);
             setIsLoadingScreen(true);
           }}

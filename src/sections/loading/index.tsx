@@ -57,7 +57,8 @@ function evalPickPlace(
   endP: number,
   from: [number, number, number],
   to: [number, number, number],
-  home: [number, number, number]
+  home: [number, number, number],
+  arcHeight: number
 ): {
   gripPos: [number, number, number];
   carryAlpha: number;
@@ -73,40 +74,40 @@ function evalPickPlace(
   }
 
   const u = (progress - startP) / (endP - startP);
-  if (u < 0.22) {
-    const t = smoothStep(u / 0.22);
+  if (u < 0.24) {
+    const t = smoothStep(u / 0.24);
     return {
       gripPos: [
         THREE.MathUtils.lerp(home[0], from[0], t),
-        THREE.MathUtils.lerp(home[1], from[1] + 0.16, t) + Math.sin(t * Math.PI) * 0.4,
+        THREE.MathUtils.lerp(home[1], from[1] + 0.14, t) + Math.sin(t * Math.PI) * 0.35,
         THREE.MathUtils.lerp(home[2], from[2], t),
       ],
       carryAlpha: 0,
       isCarrying: false,
       placed: false,
-      jawOpen: u > 0.17 ? 0.1 : 1,
+      jawOpen: u > 0.19 ? 0.08 : 1,
     };
   }
   if (u < 0.78) {
-    const t = smoothStep((u - 0.22) / 0.56);
-    const arcY = Math.sin(t * Math.PI) * 1.05;
+    const t = smoothStep((u - 0.24) / 0.54);
+    const arcY = Math.sin(t * Math.PI) * arcHeight;
     return {
       gripPos: [
         THREE.MathUtils.lerp(from[0], to[0], t),
-        THREE.MathUtils.lerp(from[1], to[1], t) + arcY + 0.16,
+        THREE.MathUtils.lerp(from[1], to[1], t) + arcY + 0.14,
         THREE.MathUtils.lerp(from[2], to[2], t),
       ],
       carryAlpha: t,
       isCarrying: true,
       placed: false,
-      jawOpen: 0.1,
+      jawOpen: 0.08,
     };
   }
   const t = smoothStep((u - 0.78) / 0.22);
   return {
     gripPos: [
       THREE.MathUtils.lerp(to[0], home[0], t),
-      THREE.MathUtils.lerp(to[1] + 0.16, home[1], t) + Math.sin(t * Math.PI) * 0.4,
+      THREE.MathUtils.lerp(to[1] + 0.14, home[1], t) + Math.sin(t * Math.PI) * 0.35,
       THREE.MathUtils.lerp(to[2], home[2], t),
     ],
     carryAlpha: 1,
@@ -116,114 +117,184 @@ function evalPickPlace(
   };
 }
 
-// ============================================================================
-// 3dviz-pro-max SCULPTED 3-DOF PICK-AND-PLACE ASSEMBLY ARM
-// ============================================================================
-function PickPlaceArm({
+interface ArmJointRefs {
+  root: THREE.Group | null;
+  turret: THREE.Group | null;
+  shoulder: THREE.Group | null;
+  elbow: THREE.Group | null;
+  wrist: THREE.Group | null;
+  tip: THREE.Group | null;
+  jawL: THREE.Mesh | null;
+  jawR: THREE.Mesh | null;
+}
+
+function solveAndApplyArmIK(
+  refs: ArmJointRefs,
+  basePos: [number, number, number],
+  targetPos: [number, number, number],
+  jawOpen: number,
+  scale: number,
+  delta: number,
+  outTipWorld: THREE.Vector3
+) {
+  const [tx, ty, tz] = targetPos;
+  const dx = (tx - basePos[0]) / scale;
+  const dz = (tz - basePos[2]) / scale;
+  const dy = (ty - (basePos[1] + 0.44 * scale)) / scale;
+
+  const yaw = Math.atan2(dx, dz);
+  const horiz = Math.hypot(dx, dz);
+
+  const L1 = 2.05;
+  const L2 = 2.05;
+  const dist = THREE.MathUtils.clamp(Math.hypot(horiz, dy), 0.45, (L1 + L2) * 0.96);
+  const cosElbow = THREE.MathUtils.clamp((dist * dist - L1 * L1 - L2 * L2) / (2 * L1 * L2), -0.96, 0.96);
+  const elbowAng = Math.acos(cosElbow);
+  const angleToTarget = Math.atan2(horiz, dy);
+  const alpha = Math.atan2(L2 * Math.sin(elbowAng), L1 + L2 * Math.cos(elbowAng));
+
+  const goalShoulder = THREE.MathUtils.clamp(angleToTarget - alpha, -0.35, 1.5);
+  const goalElbow = THREE.MathUtils.clamp(elbowAng, 0.25, 2.3);
+  const goalWrist = Math.PI - goalShoulder - goalElbow;
+
+  if (refs.turret) refs.turret.rotation.y = THREE.MathUtils.damp(refs.turret.rotation.y, yaw, 16, delta);
+  if (refs.shoulder) refs.shoulder.rotation.x = THREE.MathUtils.damp(refs.shoulder.rotation.x, goalShoulder, 16, delta);
+  if (refs.elbow) refs.elbow.rotation.x = THREE.MathUtils.damp(refs.elbow.rotation.x, goalElbow, 16, delta);
+  if (refs.wrist) refs.wrist.rotation.x = THREE.MathUtils.damp(refs.wrist.rotation.x, goalWrist, 18, delta);
+
+  const jOff = 0.045 + jawOpen * 0.055;
+  if (refs.jawL) refs.jawL.position.x = THREE.MathUtils.damp(refs.jawL.position.x, -jOff, 14, delta);
+  if (refs.jawR) refs.jawR.position.x = THREE.MathUtils.damp(refs.jawR.position.x, jOff, 14, delta);
+
+  if (refs.root && refs.tip) {
+    refs.root.updateMatrixWorld(true);
+    refs.tip.getWorldPosition(outTipWorld);
+  }
+}
+
+function PickPlaceArmMesh({
   basePos,
-  targetRef,
   scale,
   graphiteMat,
   silverMat,
   accentMat,
   darkMat,
+  onRegister,
 }: {
   basePos: [number, number, number];
-  targetRef: React.MutableRefObject<{ pos: [number, number, number]; jawOpen: number }>;
   scale: number;
   graphiteMat: THREE.Material;
   silverMat: THREE.Material;
   accentMat: THREE.Material;
   darkMat: THREE.Material;
+  onRegister: (refs: ArmJointRefs) => void;
 }) {
-  const turretRef = useRef<THREE.Group>(null);
-  const shoulderRef = useRef<THREE.Group>(null);
-  const elbowRef = useRef<THREE.Group>(null);
-  const wristRef = useRef<THREE.Group>(null);
-  const jawLRef = useRef<THREE.Mesh>(null);
-  const jawRRef = useRef<THREE.Mesh>(null);
-
-  useFrame((_, delta) => {
-    const { pos, jawOpen } = targetRef.current;
-    const [tx, ty, tz] = pos;
-    const dx = (tx - basePos[0]) / scale;
-    const dz = (tz - basePos[2]) / scale;
-    const dy = (ty - (basePos[1] + 0.44 * scale)) / scale;
-
-    const yaw = Math.atan2(dx, dz);
-    const horiz = Math.hypot(dx, dz);
-
-    const L1 = 1.85;
-    const L2 = 1.85;
-    const dist = THREE.MathUtils.clamp(Math.hypot(horiz, dy), 0.45, (L1 + L2) * 0.96);
-    const cosElbow = THREE.MathUtils.clamp((dist * dist - L1 * L1 - L2 * L2) / (2 * L1 * L2), -0.96, 0.96);
-    const elbowAng = Math.acos(cosElbow);
-    const angleToTarget = Math.atan2(horiz, dy);
-    const alpha = Math.atan2(L2 * Math.sin(elbowAng), L1 + L2 * Math.cos(elbowAng));
-
-    const goalShoulder = THREE.MathUtils.clamp(angleToTarget - alpha, -0.35, 1.5);
-    const goalElbow = THREE.MathUtils.clamp(elbowAng, 0.25, 2.3);
-    const goalWrist = Math.PI - goalShoulder - goalElbow;
-
-    if (turretRef.current) turretRef.current.rotation.y = THREE.MathUtils.damp(turretRef.current.rotation.y, yaw, 9, delta);
-    if (shoulderRef.current) shoulderRef.current.rotation.x = THREE.MathUtils.damp(shoulderRef.current.rotation.x, goalShoulder, 9, delta);
-    if (elbowRef.current) elbowRef.current.rotation.x = THREE.MathUtils.damp(elbowRef.current.rotation.x, goalElbow, 9, delta);
-    if (wristRef.current) wristRef.current.rotation.x = THREE.MathUtils.damp(wristRef.current.rotation.x, goalWrist, 11, delta);
-
-    const jOff = 0.045 + jawOpen * 0.055;
-    if (jawLRef.current) jawLRef.current.position.x = THREE.MathUtils.damp(jawLRef.current.position.x, -jOff, 12, delta);
-    if (jawRRef.current) jawRRef.current.position.x = THREE.MathUtils.damp(jawRRef.current.position.x, jOff, 12, delta);
+  const refs = useRef<ArmJointRefs>({
+    root: null,
+    turret: null,
+    shoulder: null,
+    elbow: null,
+    wrist: null,
+    tip: null,
+    jawL: null,
+    jawR: null,
   });
 
+  useEffect(() => {
+    onRegister(refs.current);
+  }, [onRegister]);
+
   return (
-    <group position={basePos} scale={scale}>
-      {/* Grounded Pedestal + Bolt Collar */}
+    <group
+      ref={(el) => {
+        refs.current.root = el;
+      }}
+      position={basePos}
+      scale={scale}
+    >
       <mesh position={[0, 0.16, 0]} material={graphiteMat} castShadow>
         <cylinderGeometry args={[0.28, 0.34, 0.32, 20]} />
       </mesh>
       <mesh position={[0, 0.35, 0]} material={silverMat}>
         <cylinderGeometry args={[0.25, 0.27, 0.06, 20]} />
       </mesh>
-      <group ref={turretRef} position={[0, 0.44, 0]}>
+      <group
+        ref={(el) => {
+          refs.current.turret = el;
+        }}
+        position={[0, 0.44, 0]}
+      >
         <mesh material={accentMat} castShadow>
           <cylinderGeometry args={[0.21, 0.23, 0.16, 18]} />
         </mesh>
-        <group ref={shoulderRef} position={[0, 0.08, 0]}>
+        <group
+          ref={(el) => {
+            refs.current.shoulder = el;
+          }}
+          position={[0, 0.08, 0]}
+        >
           <mesh rotation={[0, 0, Math.PI / 2]} material={darkMat}>
             <cylinderGeometry args={[0.17, 0.17, 0.3, 16]} />
           </mesh>
-          {/* Twin-spar upper link */}
-          <mesh position={[-0.08, 0.92, 0]} material={silverMat} castShadow>
-            <boxGeometry args={[0.07, 1.85, 0.2]} />
+          <mesh position={[-0.08, 1.02, 0]} material={silverMat} castShadow>
+            <boxGeometry args={[0.07, 2.05, 0.2]} />
           </mesh>
-          <mesh position={[0.08, 0.92, 0]} material={silverMat} castShadow>
-            <boxGeometry args={[0.07, 1.85, 0.2]} />
+          <mesh position={[0.08, 1.02, 0]} material={silverMat} castShadow>
+            <boxGeometry args={[0.07, 2.05, 0.2]} />
           </mesh>
-          <mesh position={[0, 0.92, 0]} material={graphiteMat}>
-            <boxGeometry args={[0.1, 1.6, 0.12]} />
+          <mesh position={[0, 1.02, 0]} material={graphiteMat}>
+            <boxGeometry args={[0.1, 1.8, 0.12]} />
           </mesh>
 
-          <group ref={elbowRef} position={[0, 1.85, 0]}>
+          <group
+            ref={(el) => {
+              refs.current.elbow = el;
+            }}
+            position={[0, 2.05, 0]}
+          >
             <mesh rotation={[0, 0, Math.PI / 2]} material={accentMat}>
               <cylinderGeometry args={[0.14, 0.14, 0.28, 16]} />
             </mesh>
-            <mesh position={[0, 0.92, 0]} material={silverMat} castShadow>
-              <boxGeometry args={[0.14, 1.85, 0.16]} />
+            <mesh position={[0, 1.02, 0]} material={silverMat} castShadow>
+              <boxGeometry args={[0.14, 2.05, 0.16]} />
             </mesh>
-            <mesh position={[0, 0.92, 0]} material={graphiteMat}>
-              <boxGeometry args={[0.17, 1.2, 0.08]} />
+            <mesh position={[0, 1.02, 0]} material={graphiteMat}>
+              <boxGeometry args={[0.17, 1.35, 0.08]} />
             </mesh>
 
-            <group ref={wristRef} position={[0, 1.85, 0]}>
+            <group
+              ref={(el) => {
+                refs.current.wrist = el;
+              }}
+              position={[0, 2.05, 0]}
+            >
               <mesh position={[0, 0.06, 0]} material={darkMat}>
                 <cylinderGeometry args={[0.11, 0.13, 0.12, 14]} />
               </mesh>
-              <mesh ref={jawLRef} position={[-0.08, 0.16, 0]} material={accentMat}>
+              <mesh
+                ref={(el) => {
+                  refs.current.jawL = el;
+                }}
+                position={[-0.08, 0.16, 0]}
+                material={accentMat}
+              >
                 <boxGeometry args={[0.04, 0.16, 0.09]} />
               </mesh>
-              <mesh ref={jawRRef} position={[0.08, 0.16, 0]} material={accentMat}>
+              <mesh
+                ref={(el) => {
+                  refs.current.jawR = el;
+                }}
+                position={[0.08, 0.16, 0]}
+                material={accentMat}
+              >
                 <boxGeometry args={[0.04, 0.16, 0.09]} />
               </mesh>
+              <group
+                ref={(el) => {
+                  refs.current.tip = el;
+                }}
+                position={[0, 0.2, 0]}
+              />
             </group>
           </group>
         </group>
@@ -233,7 +304,7 @@ function PickPlaceArm({
 }
 
 // ============================================================================
-// 2-TABLE, 4-ARM SIMULTANEOUS ASSEMBLY CELL (ZERO NESTED OFFSET BUGS)
+// STRICT 4-CORRIDOR COLLISION-FREE ASSEMBLY CELL + SAME-FRAME TIP SYNC
 // ============================================================================
 function TwoTableAssemblyCell({
   progress,
@@ -252,15 +323,15 @@ function TwoTableAssemblyCell({
     height: frontHeight,
   });
 
-  const cellScale = Math.min(frontWidth * 0.095, 0.66);
-  const tableX = 1.95 * cellScale;
-  const armScale = cellScale * 0.58;
+  const cellScale = Math.min(frontWidth * 0.092, 0.64);
+  const tableX = 2.08 * cellScale;
+  const armScale = cellScale * 0.54;
+  const helperScale = cellScale * 0.72;
 
   const cellTablesRef = useRef<THREE.Group>(null);
   const rootArmRef = useRef<THREE.Group>(null);
   const railRef = useRef<THREE.Group>(null);
 
-  // Independent sibling staging/transit module refs (world-space, never compounded!)
   const stgPedestalRef = useRef<THREE.Group>(null);
   const stgTurretRef = useRef<THREE.Group>(null);
   const stgBoomRef = useRef<THREE.Group>(null);
@@ -268,21 +339,30 @@ function TwoTableAssemblyCell({
   const stgWristRef = useRef<THREE.Group>(null);
   const stgLaserRef = useRef<THREE.Group>(null);
 
-  // Assembled hierarchy visibility & joints inside rootArmRef (shown once placed on Table 2!)
   const asmPedestalRef = useRef<THREE.Group>(null);
   const asmTurretRef = useRef<THREE.Group>(null);
   const asmShoulderRef = useRef<THREE.Group>(null);
   const asmElbowRef = useRef<THREE.Group>(null);
   const asmWristRef = useRef<THREE.Group>(null);
-  const asmLaserRef = useRef<THREE.Group>(null);
+
+  // Leaf mesh visibility refs (decoupled from parent joint pivots so dropped parts render immediately)
+  const visPedestalRef = useRef<THREE.Group>(null);
+  const visTurretRef = useRef<THREE.Group>(null);
+  const visBoomRef = useRef<THREE.Group>(null);
+  const visForearmRef = useRef<THREE.Group>(null);
+  const visWristRef = useRef<THREE.Group>(null);
+  const visLaserRef = useRef<THREE.Group>(null);
+
   const asmJawLRef = useRef<THREE.Mesh>(null);
   const asmJawRRef = useRef<THREE.Mesh>(null);
 
-  // 4 Arm live target refs
-  const arm1Target = useRef({ pos: [-0.65 * cellScale, 0.8 * cellScale, -1.75 * cellScale] as [number, number, number], jawOpen: 1 });
-  const arm2Target = useRef({ pos: [-0.65 * cellScale, 0.8 * cellScale, 1.75 * cellScale] as [number, number, number], jawOpen: 1 });
-  const arm3Target = useRef({ pos: [0.65 * cellScale, 0.8 * cellScale, -1.75 * cellScale] as [number, number, number], jawOpen: 1 });
-  const arm4Target = useRef({ pos: [0.65 * cellScale, 0.8 * cellScale, 1.75 * cellScale] as [number, number, number], jawOpen: 1 });
+  const armRefs = useRef<Array<ArmJointRefs | null>>([null, null, null, null]);
+  const armTips = useRef<[THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3]>([
+    new THREE.Vector3(),
+    new THREE.Vector3(),
+    new THREE.Vector3(),
+    new THREE.Vector3(),
+  ]);
 
   const silverArmor = useMemo(
     () => new THREE.MeshStandardMaterial({ color: '#cbd5e1', metalness: 0.58, roughness: 0.24, flatShading: true }),
@@ -361,20 +441,26 @@ function TwoTableAssemblyCell({
   const gearTeeth = useMemo(() => Array.from({ length: 28 }, (_, i) => (i / 28) * Math.PI * 2), []);
   const drumSlots = useMemo(() => Array.from({ length: 8 }, (_, i) => (i / 8) * Math.PI * 2), []);
 
+  // 4 Strictly Separated Horizontal Z-Corridor Arm Bases
+  const base1: [number, number, number] = [-0.68 * cellScale, 0, -1.65 * cellScale];
+  const base2: [number, number, number] = [0.68 * cellScale, 0, -0.55 * cellScale];
+  const base3: [number, number, number] = [-0.68 * cellScale, 0, 0.55 * cellScale];
+  const base4: [number, number, number] = [0.68 * cellScale, 0, 1.65 * cellScale];
+
   useFrame((_, delta) => {
     const s = armScale;
-    const trayY = 0.26 * cellScale;
-    const benchArmBaseZ = 1.38 * cellScale;
+    const trayY = 0.27 * cellScale;
+    const benchArmBaseZ = 1.32 * cellScale;
 
-    // 6 Staging Tray coordinates on Table 1 (Left)
-    const trayPedestal: [number, number, number] = [-tableX - 0.42 * cellScale, trayY, 0.95 * cellScale];
-    const trayTurret: [number, number, number] = [-tableX + 0.42 * cellScale, trayY, 0.95 * cellScale];
-    const trayBoom: [number, number, number] = [-tableX - 0.42 * cellScale, trayY, 0];
-    const trayForearm: [number, number, number] = [-tableX + 0.42 * cellScale, trayY, 0];
-    const trayWrist: [number, number, number] = [-tableX - 0.42 * cellScale, trayY, -0.95 * cellScale];
-    const trayLaser: [number, number, number] = [-tableX + 0.42 * cellScale, trayY, -0.95 * cellScale];
+    // 6 Staging Tray coordinates on Table 1 (centered inside enlarged pads & separated into 4 Z-corridors)
+    const trayLaser: [number, number, number] = [-tableX + 0.48 * cellScale, trayY, -0.98 * cellScale];
+    const trayWrist: [number, number, number] = [-tableX - 0.48 * cellScale, trayY, -0.98 * cellScale];
+    const trayForearm: [number, number, number] = [-tableX + 0.48 * cellScale, trayY, -0.14 * cellScale];
+    const trayBoom: [number, number, number] = [-tableX - 0.48 * cellScale, trayY, 0.14 * cellScale];
+    const trayTurret: [number, number, number] = [-tableX + 0.48 * cellScale, trayY, 0.98 * cellScale];
+    const trayPedestal: [number, number, number] = [-tableX - 0.48 * cellScale, trayY, 0.98 * cellScale];
 
-    // 6 Assembly target coordinates on Table 2 (Right, along -Z)
+    // 6 Assembly target coordinates on Table 2
     const dstPedestal: [number, number, number] = [tableX, trayY + 0.24 * s, benchArmBaseZ];
     const dstTurret: [number, number, number] = [tableX, trayY + 0.24 * s, benchArmBaseZ - 0.58 * s];
     const dstBoom: [number, number, number] = [tableX, trayY + 0.24 * s, benchArmBaseZ - 1.36 * s];
@@ -382,46 +468,54 @@ function TwoTableAssemblyCell({
     const dstWrist: [number, number, number] = [tableX, trayY + 0.24 * s, benchArmBaseZ - 4.18 * s];
     const dstLaser: [number, number, number] = [tableX, trayY + 0.24 * s, benchArmBaseZ - 4.58 * s];
 
-    const home1: [number, number, number] = [-0.62 * cellScale, 0.85 * cellScale, -1.85 * cellScale];
-    const home2: [number, number, number] = [-0.62 * cellScale, 0.85 * cellScale, 1.85 * cellScale];
-    const home3: [number, number, number] = [0.62 * cellScale, 0.85 * cellScale, -1.85 * cellScale];
-    const home4: [number, number, number] = [0.62 * cellScale, 0.85 * cellScale, 1.85 * cellScale];
+    const home1: [number, number, number] = [-0.68 * cellScale, 0.85 * cellScale, -1.65 * cellScale];
+    const home2: [number, number, number] = [0.68 * cellScale, 0.85 * cellScale, -0.55 * cellScale];
+    const home3: [number, number, number] = [-0.68 * cellScale, 0.85 * cellScale, 0.55 * cellScale];
+    const home4: [number, number, number] = [0.68 * cellScale, 0.85 * cellScale, 1.65 * cellScale];
 
-    // 4 Arms working simultaneously in staggered parallel windows
-    const pedJob = evalPickPlace(progress, 2, 42, trayPedestal, dstPedestal, home1);
-    const turJob = evalPickPlace(progress, 44, 88, trayTurret, dstTurret, home1);
-    arm1Target.current = progress < 43
-      ? { pos: pedJob.gripPos, jawOpen: pedJob.jawOpen }
-      : { pos: turJob.gripPos, jawOpen: turJob.jawOpen };
+    // Lane 1 (Arm 1, Top-Left): Wrist (2->44%) -> Laser (50->96%)
+    const wristJob = evalPickPlace(progress, 2, 44, trayWrist, dstWrist, home1, 0.9);
+    const laserJob = evalPickPlace(progress, 50, 96, trayLaser, dstLaser, home1, 0.9);
+    const t1 = progress < 47 ? wristJob : laserJob;
 
-    const boomJob = evalPickPlace(progress, 8, 62, trayBoom, dstBoom, home2);
-    arm2Target.current = { pos: boomJob.gripPos, jawOpen: boomJob.jawOpen };
+    // Lane 2 (Arm 2, Upper-Mid-Right): Forearm (8->62%)
+    const foreJob = evalPickPlace(progress, 8, 62, trayForearm, dstForearm, home2, 1.05);
 
-    const foreJob = evalPickPlace(progress, 16, 74, trayForearm, dstForearm, home3);
-    arm3Target.current = { pos: foreJob.gripPos, jawOpen: foreJob.jawOpen };
+    // Lane 3 (Arm 3, Lower-Mid-Left): Upper Boom (16->72%)
+    const boomJob = evalPickPlace(progress, 16, 72, trayBoom, dstBoom, home3, 1.05);
 
-    const wristJob = evalPickPlace(progress, 22, 66, trayWrist, dstWrist, home4);
-    const laserJob = evalPickPlace(progress, 68, 98, trayLaser, dstLaser, home4);
-    arm4Target.current = progress < 67
-      ? { pos: wristJob.gripPos, jawOpen: wristJob.jawOpen }
-      : { pos: laserJob.gripPos, jawOpen: laserJob.jawOpen };
+    // Lane 4 (Arm 4, Bottom-Right): Pedestal (2->42%) -> Turret (46->90%)
+    const pedJob = evalPickPlace(progress, 2, 42, trayPedestal, dstPedestal, home4, 0.85);
+    const turJob = evalPickPlace(progress, 46, 90, trayTurret, dstTurret, home4, 0.85);
+    const t4 = progress < 44 ? pedJob : turJob;
 
-    // Sync independent world-space staging/transit modules vs assembled hierarchy
+    // 1. Solve all 4 arms FIRST in this exact frame & capture live world-space gripper tips
+    if (armRefs.current[0]) solveAndApplyArmIK(armRefs.current[0], base1, t1.gripPos, t1.jawOpen, helperScale, delta, armTips.current[0]);
+    if (armRefs.current[1]) solveAndApplyArmIK(armRefs.current[1], base2, foreJob.gripPos, foreJob.jawOpen, helperScale, delta, armTips.current[1]);
+    if (armRefs.current[2]) solveAndApplyArmIK(armRefs.current[2], base3, boomJob.gripPos, boomJob.jawOpen, helperScale, delta, armTips.current[2]);
+    if (armRefs.current[3]) solveAndApplyArmIK(armRefs.current[3], base4, t4.gripPos, t4.jawOpen, helperScale, delta, armTips.current[3]);
+
+    // 2. Lock carried parts to their carrier arm's live tip in the SAME frame (zero 1-frame lag!)
     const syncModule = (
       stgRef: React.RefObject<THREE.Group>,
       asmRef: React.RefObject<THREE.Group>,
       job: ReturnType<typeof evalPickPlace>,
-      tray: [number, number, number]
+      tray: [number, number, number],
+      tipWorld: THREE.Vector3,
+      trayRotX = 0
     ) => {
       const placed = dockProgress > 0 || job.placed;
       if (stgRef.current) {
         stgRef.current.visible = !placed;
         if (!placed) {
-          const wx = job.isCarrying ? job.gripPos[0] : tray[0];
-          const wy = job.isCarrying ? job.gripPos[1] - 0.14 : tray[1];
-          const wz = job.isCarrying ? job.gripPos[2] : tray[2];
-          stgRef.current.position.set(wx, wy, wz);
-          stgRef.current.rotation.set(-Math.PI / 2 * (0.4 + 0.6 * job.carryAlpha), 0, 0);
+          if (job.isCarrying) {
+            stgRef.current.position.copy(tipWorld);
+            stgRef.current.position.y -= 0.06 * cellScale;
+            stgRef.current.rotation.set(-Math.PI / 2 * job.carryAlpha, 0, 0);
+          } else {
+            stgRef.current.position.set(tray[0], tray[1], tray[2]);
+            stgRef.current.rotation.set(trayRotX, 0, 0);
+          }
         }
       }
       if (asmRef.current) {
@@ -429,12 +523,12 @@ function TwoTableAssemblyCell({
       }
     };
 
-    syncModule(stgPedestalRef, asmPedestalRef, pedJob, trayPedestal);
-    syncModule(stgTurretRef, asmTurretRef, turJob, trayTurret);
-    syncModule(stgBoomRef, asmShoulderRef, boomJob, trayBoom);
-    syncModule(stgForearmRef, asmElbowRef, foreJob, trayForearm);
-    syncModule(stgWristRef, asmWristRef, wristJob, trayWrist);
-    syncModule(stgLaserRef, asmLaserRef, laserJob, trayLaser);
+    syncModule(stgPedestalRef, visPedestalRef, pedJob, trayPedestal, armTips.current[3], 0);
+    syncModule(stgTurretRef, visTurretRef, turJob, trayTurret, armTips.current[3], -Math.PI / 2);
+    syncModule(stgBoomRef, visBoomRef, boomJob, trayBoom, armTips.current[2], -Math.PI / 2);
+    syncModule(stgForearmRef, visForearmRef, foreJob, trayForearm, armTips.current[1], -Math.PI / 2);
+    syncModule(stgWristRef, visWristRef, wristJob, trayWrist, armTips.current[0], -Math.PI / 2);
+    syncModule(stgLaserRef, visLaserRef, laserJob, trayLaser, armTips.current[0], -Math.PI / 2);
 
     const dockEase = smoothStep(dockProgress);
 
@@ -469,15 +563,14 @@ function TwoTableAssemblyCell({
       railRef.current.visible = dockProgress > 0.02;
     }
 
-    // Smooth camera swoop: Overhead Top View -> Hero Front View
     perspCam.position.lerpVectors(OVERHEAD_CAM_POS, FRONT_CAM_POS, dockEase);
     perspCam.fov = THREE.MathUtils.lerp(40, 42, dockEase);
     perspCam.lookAt(0, 0, 0);
     perspCam.updateProjectionMatrix();
   });
 
-  const tableW = 2.05 * cellScale;
-  const tableD = 3.25 * cellScale;
+  const tableW = 2.34 * cellScale;
+  const tableD = 3.55 * cellScale;
 
   return (
     <>
@@ -492,7 +585,7 @@ function TwoTableAssemblyCell({
         color="#0f172a"
       />
 
-      {/* 2 WORKTABLES + 4 SIMULTANEOUS PICK-AND-PLACE ARMS */}
+      {/* 2 WORKTABLES + 4 STRICT-CORRIDOR PICK-AND-PLACE ARMS */}
       <group ref={cellTablesRef}>
         {/* TABLE 1: PARTS STAGING BENCH (LEFT) */}
         <group position={[-tableX, 0, 0]}>
@@ -500,16 +593,16 @@ function TwoTableAssemblyCell({
             <boxGeometry args={[tableW, 0.18 * cellScale, tableD]} />
           </mesh>
           <mesh position={[0, 0.22 * cellScale, 0]} material={darkRecess} receiveShadow>
-            <boxGeometry args={[tableW * 0.9, 0.03 * cellScale, tableD * 0.92]} />
+            <boxGeometry args={[tableW * 0.92, 0.03 * cellScale, tableD * 0.92]} />
           </mesh>
-          {[-0.42, 0.42].map((px) =>
-            [-0.95, 0, 0.95].map((pz) => (
+          {[-0.48, 0.48].map((px) =>
+            [-0.98, 0, 0.98].map((pz) => (
               <mesh
                 key={`${px}_${pz}`}
                 position={[px * cellScale, 0.24 * cellScale, pz * cellScale]}
                 material={silverArmor}
               >
-                <boxGeometry args={[0.56 * cellScale, 0.025 * cellScale, 0.68 * cellScale]} />
+                <boxGeometry args={[0.8 * cellScale, 0.025 * cellScale, 0.82 * cellScale]} />
               </mesh>
             ))
           )}
@@ -531,104 +624,115 @@ function TwoTableAssemblyCell({
           </mesh>
         </group>
 
-        {/* 4 SPACED PICK-AND-PLACE ARMS WORKING SIMULTANEOUSLY */}
-        <PickPlaceArm
-          basePos={[-0.62 * cellScale, 0, -1.85 * cellScale]}
-          targetRef={arm1Target}
-          scale={cellScale * 0.72}
+        <PickPlaceArmMesh
+          basePos={base1}
+          scale={helperScale}
           graphiteMat={graphiteChassis}
           silverMat={silverArmor}
           accentMat={crimsonAccent}
           darkMat={darkRecess}
+          onRegister={(r) => { armRefs.current[0] = r; }}
         />
-        <PickPlaceArm
-          basePos={[-0.62 * cellScale, 0, 1.85 * cellScale]}
-          targetRef={arm2Target}
-          scale={cellScale * 0.72}
+        <PickPlaceArmMesh
+          basePos={base2}
+          scale={helperScale}
           graphiteMat={graphiteChassis}
           silverMat={silverArmor}
           accentMat={crimsonAccent}
           darkMat={darkRecess}
+          onRegister={(r) => { armRefs.current[1] = r; }}
         />
-        <PickPlaceArm
-          basePos={[0.62 * cellScale, 0, -1.85 * cellScale]}
-          targetRef={arm3Target}
-          scale={cellScale * 0.72}
+        <PickPlaceArmMesh
+          basePos={base3}
+          scale={helperScale}
           graphiteMat={graphiteChassis}
           silverMat={silverArmor}
           accentMat={crimsonAccent}
           darkMat={darkRecess}
+          onRegister={(r) => { armRefs.current[2] = r; }}
         />
-        <PickPlaceArm
-          basePos={[0.62 * cellScale, 0, 1.85 * cellScale]}
-          targetRef={arm4Target}
-          scale={cellScale * 0.72}
+        <PickPlaceArmMesh
+          basePos={base4}
+          scale={helperScale}
           graphiteMat={graphiteChassis}
           silverMat={silverArmor}
           accentMat={crimsonAccent}
           darkMat={darkRecess}
+          onRegister={(r) => { armRefs.current[3] = r; }}
         />
       </group>
 
-      {/* INDEPENDENT WORLD-SPACE STAGING / TRANSIT PARTS (ZERO NESTING BUGS) */}
-      <group ref={stgPedestalRef} scale={armScale}>
-        <mesh position={[0, 0.22, 0]} material={graphiteChassis}>
-          <cylinderGeometry args={[0.64, 0.72, 0.44, 32]} />
-        </mesh>
-        <mesh position={[0, 0.48, 0]} material={silverArmor}>
-          <cylinderGeometry args={[0.63, 0.65, 0.08, 32]} />
-        </mesh>
+      {/* CENTER-OF-MASS STAGING / TRANSIT PARTS (NEVER OVERHANG PADS OR DANGLE) */}
+      <group ref={stgPedestalRef} scale={armScale * 0.84}>
+        <group position={[0, -0.24, 0]}>
+          <mesh position={[0, 0.22, 0]} material={graphiteChassis}>
+            <cylinderGeometry args={[0.54, 0.62, 0.44, 32]} />
+          </mesh>
+          <mesh position={[0, 0.48, 0]} material={silverArmor}>
+            <cylinderGeometry args={[0.53, 0.55, 0.08, 32]} />
+          </mesh>
+        </group>
       </group>
 
-      <group ref={stgTurretRef} scale={armScale}>
-        <mesh geometry={turretShroudGeo} material={silverArmor} />
-        <mesh position={[0.05, 0.42, 0]} material={graphiteChassis}>
-          <boxGeometry args={[0.56, 0.72, 0.42]} />
-        </mesh>
+      <group ref={stgTurretRef} scale={armScale * 0.88}>
+        <group position={[0, -0.45, 0]}>
+          <mesh geometry={turretShroudGeo} material={silverArmor} />
+          <mesh position={[0.05, 0.42, 0]} material={graphiteChassis}>
+            <boxGeometry args={[0.56, 0.72, 0.42]} />
+          </mesh>
+        </group>
       </group>
 
-      <group ref={stgBoomRef} scale={armScale}>
-        <mesh rotation={[Math.PI / 2, 0, 0]} material={graphiteChassis}>
-          <cylinderGeometry args={[0.42, 0.42, 0.68, 28]} />
-        </mesh>
-        <mesh geometry={upperBoomGeo} material={silverArmor} />
-        <mesh position={[0, 0.72, 0]} material={graphiteChassis}>
-          <boxGeometry args={[0.36, 1.25, 0.44]} />
-        </mesh>
+      <group ref={stgBoomRef} scale={armScale * 0.74}>
+        <group position={[0, -0.68, 0]}>
+          <mesh rotation={[Math.PI / 2, 0, 0]} material={graphiteChassis}>
+            <cylinderGeometry args={[0.38, 0.38, 0.62, 28]} />
+          </mesh>
+          <mesh geometry={upperBoomGeo} material={silverArmor} />
+          <mesh position={[0, 0.72, 0]} material={graphiteChassis}>
+            <boxGeometry args={[0.34, 1.15, 0.4]} />
+          </mesh>
+        </group>
       </group>
 
-      <group ref={stgForearmRef} scale={armScale}>
-        <mesh rotation={[Math.PI / 2, 0, 0]} material={graphiteChassis}>
-          <cylinderGeometry args={[0.32, 0.32, 0.5, 24]} />
-        </mesh>
-        <mesh geometry={forearmGeo} material={silverArmor} />
-        <mesh position={[0, 0.62, 0]} material={graphiteChassis}>
-          <boxGeometry args={[0.28, 1.05, 0.34]} />
-        </mesh>
+      <group ref={stgForearmRef} scale={armScale * 0.76}>
+        <group position={[0, -0.58, 0]}>
+          <mesh rotation={[Math.PI / 2, 0, 0]} material={graphiteChassis}>
+            <cylinderGeometry args={[0.3, 0.3, 0.48, 24]} />
+          </mesh>
+          <mesh geometry={forearmGeo} material={silverArmor} />
+          <mesh position={[0, 0.56, 0]} material={graphiteChassis}>
+            <boxGeometry args={[0.26, 0.96, 0.32]} />
+          </mesh>
+        </group>
       </group>
 
       <group ref={stgWristRef} scale={armScale}>
-        <mesh rotation={[Math.PI / 2, 0, 0]} material={graphiteChassis}>
-          <cylinderGeometry args={[0.22, 0.22, 0.38, 22]} />
-        </mesh>
-        <mesh position={[0, 0.22, 0]} material={lightTrim}>
-          <cylinderGeometry args={[0.24, 0.21, 0.12, 28]} />
-        </mesh>
+        <group position={[0, -0.1, 0]}>
+          <mesh rotation={[Math.PI / 2, 0, 0]} material={graphiteChassis}>
+            <cylinderGeometry args={[0.22, 0.22, 0.38, 22]} />
+          </mesh>
+          <mesh position={[0, 0.22, 0]} material={lightTrim}>
+            <cylinderGeometry args={[0.24, 0.21, 0.12, 28]} />
+          </mesh>
+        </group>
       </group>
 
       <group ref={stgLaserRef} scale={armScale}>
-        <mesh position={[0, 0.1, 0]} material={darkRecess}>
-          <cylinderGeometry args={[0.095, 0.115, 0.22, 20]} />
-        </mesh>
-        <mesh position={[0, 0.14, 0]} material={crimsonAccent}>
-          <cylinderGeometry args={[0.105, 0.105, 0.045, 20]} />
-        </mesh>
-        <mesh position={[0, 0.26, 0]} material={copperNozzle}>
-          <cylinderGeometry args={[0.022, 0.075, 0.14, 18]} />
-        </mesh>
-        <mesh position={[0, 0.34, 0]} material={laserEmitterMat}>
-          <sphereGeometry args={[0.026, 12, 12]} />
-        </mesh>
+        <group position={[0, -0.12, 0]}>
+          <mesh position={[0, 0, 0]} material={darkRecess}>
+            <cylinderGeometry args={[0.11, 0.13, 0.26, 20]} />
+          </mesh>
+          <mesh position={[0, 0.06, 0]} material={crimsonAccent}>
+            <cylinderGeometry args={[0.12, 0.12, 0.05, 20]} />
+          </mesh>
+          <mesh position={[0, 0.18, 0]} material={copperNozzle}>
+            <cylinderGeometry args={[0.025, 0.085, 0.16, 18]} />
+          </mesh>
+          <mesh position={[0, 0.27, 0]} material={laserEmitterMat}>
+            <sphereGeometry args={[0.03, 12, 12]} />
+          </mesh>
+        </group>
       </group>
 
       {/* LINEAR GANTRY RAIL DEPLOYING AT BOTTOM FOR HERO HANDOFF */}
@@ -647,107 +751,117 @@ function TwoTableAssemblyCell({
       {/* ASSEMBLED 6-DOF HERO ARM HIERARCHY ON TABLE 2 -> RAIL DOCK */}
       <group
         ref={rootArmRef}
-        position={[tableX, 0.26 * cellScale + 0.24 * armScale, 1.38 * cellScale]}
+        position={[tableX, 0.27 * cellScale + 0.24 * armScale, 1.32 * cellScale]}
         rotation={[-Math.PI / 2, 0, 0]}
         scale={armScale}
       >
-        <group ref={asmPedestalRef} visible={false}>
-          <mesh position={[0, 0.22, 0]} material={graphiteChassis}>
-            <cylinderGeometry args={[0.64, 0.72, 0.44, 32]} />
-          </mesh>
-          {baseBolts.map((a, i) => (
-            <mesh
-              key={i}
-              position={[Math.cos(a) * 0.65, 0.36, Math.sin(a) * 0.65]}
-              rotation={[0, -a, Math.PI / 2]}
-              material={darkRecess}
-            >
-              <cylinderGeometry args={[0.025, 0.025, 0.04, 6]} />
+        <group ref={asmPedestalRef}>
+          <group ref={visPedestalRef} visible={false}>
+            <mesh position={[0, 0.22, 0]} material={graphiteChassis}>
+              <cylinderGeometry args={[0.64, 0.72, 0.44, 32]} />
             </mesh>
-          ))}
-          <mesh position={[0, 0.48, 0]} material={silverArmor}>
-            <cylinderGeometry args={[0.63, 0.65, 0.08, 32]} />
-          </mesh>
-          {gearTeeth.map((a, i) => (
-            <mesh
-              key={i}
-              position={[Math.cos(a) * 0.64, 0.48, Math.sin(a) * 0.64]}
-              rotation={[0, -a, 0]}
-              material={graphiteChassis}
-            >
-              <boxGeometry args={[0.03, 0.075, 0.028]} />
-            </mesh>
-          ))}
-          <mesh position={[0, 0.55, 0]} material={lightTrim}>
-            <cylinderGeometry args={[0.58, 0.62, 0.06, 32]} />
-          </mesh>
-        </group>
-
-        <group ref={asmTurretRef} position={[0, 0.58, 0]} visible={false}>
-          <mesh geometry={turretShroudGeo} material={silverArmor} />
-          <mesh position={[0.05, 0.42, 0]} material={graphiteChassis}>
-            <boxGeometry args={[0.56, 0.72, 0.42]} />
-          </mesh>
-
-          <group ref={asmShoulderRef} position={[0.02, 0.78, 0]} visible={false}>
-            <mesh rotation={[Math.PI / 2, 0, 0]} material={graphiteChassis}>
-              <cylinderGeometry args={[0.42, 0.42, 0.68, 28]} />
-            </mesh>
-            <mesh rotation={[Math.PI / 2, 0, 0]} material={lightTrim}>
-              <cylinderGeometry args={[0.35, 0.35, 0.72, 24]} />
-            </mesh>
-            {drumSlots.map((a, i) => (
+            {baseBolts.map((a, i) => (
               <mesh
                 key={i}
-                position={[Math.cos(a) * 0.37, Math.sin(a) * 0.37, 0]}
-                rotation={[0, 0, a]}
+                position={[Math.cos(a) * 0.65, 0.36, Math.sin(a) * 0.65]}
+                rotation={[0, -a, Math.PI / 2]}
                 material={darkRecess}
               >
-                <boxGeometry args={[0.09, 0.07, 0.73]} />
+                <cylinderGeometry args={[0.025, 0.025, 0.04, 6]} />
               </mesh>
             ))}
-
-            <mesh geometry={upperBoomGeo} material={silverArmor} />
-            <mesh position={[0, 0.72, 0]} material={graphiteChassis}>
-              <boxGeometry args={[0.36, 1.25, 0.44]} />
+            <mesh position={[0, 0.48, 0]} material={silverArmor}>
+              <cylinderGeometry args={[0.63, 0.65, 0.08, 32]} />
             </mesh>
+            {gearTeeth.map((a, i) => (
+              <mesh
+                key={i}
+                position={[Math.cos(a) * 0.64, 0.48, Math.sin(a) * 0.64]}
+                rotation={[0, -a, 0]}
+                material={graphiteChassis}
+              >
+                <boxGeometry args={[0.03, 0.075, 0.028]} />
+              </mesh>
+            ))}
+            <mesh position={[0, 0.55, 0]} material={lightTrim}>
+              <cylinderGeometry args={[0.58, 0.62, 0.06, 32]} />
+            </mesh>
+          </group>
+        </group>
 
-            <group ref={asmElbowRef} position={[0, 1.52, 0]} visible={false}>
+        <group ref={asmTurretRef} position={[0, 0.58, 0]}>
+          <group ref={visTurretRef} visible={false}>
+            <mesh geometry={turretShroudGeo} material={silverArmor} />
+            <mesh position={[0.05, 0.42, 0]} material={graphiteChassis}>
+              <boxGeometry args={[0.56, 0.72, 0.42]} />
+            </mesh>
+          </group>
+
+          <group ref={asmShoulderRef} position={[0.02, 0.78, 0]}>
+            <group ref={visBoomRef} visible={false}>
               <mesh rotation={[Math.PI / 2, 0, 0]} material={graphiteChassis}>
-                <cylinderGeometry args={[0.32, 0.32, 0.5, 24]} />
+                <cylinderGeometry args={[0.42, 0.42, 0.68, 28]} />
               </mesh>
-              <mesh rotation={[Math.PI / 2, 0, 0]} material={silverArmor}>
-                <cylinderGeometry args={[0.24, 0.24, 0.54, 20]} />
+              <mesh rotation={[Math.PI / 2, 0, 0]} material={lightTrim}>
+                <cylinderGeometry args={[0.35, 0.35, 0.72, 24]} />
               </mesh>
+              {drumSlots.map((a, i) => (
+                <mesh
+                  key={i}
+                  position={[Math.cos(a) * 0.37, Math.sin(a) * 0.37, 0]}
+                  rotation={[0, 0, a]}
+                  material={darkRecess}
+                >
+                  <boxGeometry args={[0.09, 0.07, 0.73]} />
+                </mesh>
+              ))}
 
-              <mesh geometry={forearmGeo} material={silverArmor} />
-              <mesh position={[0, 0.62, 0]} material={graphiteChassis}>
-                <boxGeometry args={[0.28, 1.05, 0.34]} />
+              <mesh geometry={upperBoomGeo} material={silverArmor} />
+              <mesh position={[0, 0.72, 0]} material={graphiteChassis}>
+                <boxGeometry args={[0.36, 1.25, 0.44]} />
               </mesh>
+            </group>
 
-              <group ref={asmWristRef} position={[0, 1.3, 0]} visible={false}>
+            <group ref={asmElbowRef} position={[0, 1.52, 0]}>
+              <group ref={visForearmRef} visible={false}>
                 <mesh rotation={[Math.PI / 2, 0, 0]} material={graphiteChassis}>
-                  <cylinderGeometry args={[0.22, 0.22, 0.38, 22]} />
+                  <cylinderGeometry args={[0.32, 0.32, 0.5, 24]} />
                 </mesh>
-                <mesh rotation={[Math.PI / 2, 0, 0]} material={lightTrim}>
-                  <cylinderGeometry args={[0.16, 0.16, 0.42, 20]} />
-                </mesh>
-
-                <mesh position={[0, 0.22, 0]} material={lightTrim}>
-                  <cylinderGeometry args={[0.24, 0.21, 0.12, 28]} />
-                </mesh>
-                <mesh position={[0, 0.29, 0]} material={darkRecess}>
-                  <cylinderGeometry args={[0.19, 0.19, 0.04, 24]} />
+                <mesh rotation={[Math.PI / 2, 0, 0]} material={silverArmor}>
+                  <cylinderGeometry args={[0.24, 0.24, 0.54, 20]} />
                 </mesh>
 
-                <mesh ref={asmJawLRef} position={[0, 0.38, 0.11]} material={graphiteChassis}>
-                  <boxGeometry args={[0.12, 0.18, 0.045]} />
+                <mesh geometry={forearmGeo} material={silverArmor} />
+                <mesh position={[0, 0.62, 0]} material={graphiteChassis}>
+                  <boxGeometry args={[0.28, 1.05, 0.34]} />
                 </mesh>
-                <mesh ref={asmJawRRef} position={[0, 0.38, -0.11]} material={graphiteChassis}>
-                  <boxGeometry args={[0.12, 0.18, 0.045]} />
-                </mesh>
+              </group>
 
-                <group ref={asmLaserRef} visible={false}>
+              <group ref={asmWristRef} position={[0, 1.3, 0]}>
+                <group ref={visWristRef} visible={false}>
+                  <mesh rotation={[Math.PI / 2, 0, 0]} material={graphiteChassis}>
+                    <cylinderGeometry args={[0.22, 0.22, 0.38, 22]} />
+                  </mesh>
+                  <mesh rotation={[Math.PI / 2, 0, 0]} material={lightTrim}>
+                    <cylinderGeometry args={[0.16, 0.16, 0.42, 20]} />
+                  </mesh>
+
+                  <mesh position={[0, 0.22, 0]} material={lightTrim}>
+                    <cylinderGeometry args={[0.24, 0.21, 0.12, 28]} />
+                  </mesh>
+                  <mesh position={[0, 0.29, 0]} material={darkRecess}>
+                    <cylinderGeometry args={[0.19, 0.19, 0.04, 24]} />
+                  </mesh>
+
+                  <mesh ref={asmJawLRef} position={[0, 0.38, 0.11]} material={graphiteChassis}>
+                    <boxGeometry args={[0.12, 0.18, 0.045]} />
+                  </mesh>
+                  <mesh ref={asmJawRRef} position={[0, 0.38, -0.11]} material={graphiteChassis}>
+                    <boxGeometry args={[0.12, 0.18, 0.045]} />
+                  </mesh>
+                </group>
+
+                <group ref={visLaserRef} visible={false}>
                   <mesh position={[0, 0.4, 0]} material={darkRecess}>
                     <cylinderGeometry args={[0.095, 0.115, 0.22, 20]} />
                   </mesh>
@@ -782,7 +896,6 @@ export default function RobotLoader({ onComplete }: RobotLoaderProps) {
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
 
-  // Minimum 10-second loading sequence (9.0s assembly + 0.5s hold + 1.0s swoop/dock + 0.2s fade = 10.7s)
   useEffect(() => {
     const progProxy = { val: 0 };
     const dockProxy = { val: 0 };
@@ -805,8 +918,8 @@ export default function RobotLoader({ onComplete }: RobotLoaderProps) {
         }
         if (p !== lastSoundTick) {
           lastSoundTick = p;
-          if (p === 42 || p === 62 || p === 74 || p === 88) sound.playPneumatic();
-          else if (p === 98) sound.playSnap();
+          if (p === 42 || p === 62 || p === 72 || p === 90) sound.playPneumatic();
+          else if (p === 96) sound.playSnap();
           else if (p % 10 === 0 && p > 0) sound.playRotaryTick();
         }
       },
