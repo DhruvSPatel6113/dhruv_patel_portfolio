@@ -2,10 +2,10 @@
 
 > Personal interactive developer portfolio showcase
 
-[![Play Live Demo](https://dhruvpatel-umber.vercel.app/)
+[![Play Live Demo]
 
 ## Live Web App
-👉 **Play / Preview directly in browser**: [https://dhruvspatel6113.github.io/dhruv_patel_portfolio/](https://dhruvspatel6113.github.io/dhruv_patel_portfolio/)
+👉 **Play / Preview directly in browser**: [https://dhruvpatel-umber.vercel.app/](https://dhruvpatel-umber.vercel.app/)
 
 ## Overview
 Personal developer portfolio website showcasing software engineering projects, interactive simulations, and creative coding experiments built by Dhruv Patel.
