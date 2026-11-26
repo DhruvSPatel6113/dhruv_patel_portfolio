@@ -332,19 +332,19 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
       {/* 2.39:1 Cinematic Letterbox Bars */}
       <div
         ref={topCinemaBarRef}
-        className="fixed top-0 inset-x-0 h-10 sm:h-14 bg-black z-40 pointer-events-none will-change-transform"
+        className="fixed top-0 inset-x-0 h-10 sm:h-14 bg-black z-50 pointer-events-none will-change-transform"
         style={{ transform: 'translateY(-100%)' }}
       />
       <div
         ref={bottomCinemaBarRef}
-        className="fixed bottom-0 inset-x-0 h-10 sm:h-14 bg-black z-40 pointer-events-none will-change-transform"
+        className="fixed bottom-0 inset-x-0 h-10 sm:h-14 bg-black z-50 pointer-events-none will-change-transform"
         style={{ transform: 'translateY(100%)' }}
       />
 
       {/* 0.95 Dark Optical Diffusion Layer + Blood-Red Scatter & Anamorphic Refractive Flare */}
       <div
         ref={spotlightOverlayRef}
-        className="fixed inset-0 z-30 pointer-events-none opacity-0 will-change-[opacity]"
+        className="fixed inset-0 z-40 pointer-events-none opacity-0 will-change-[opacity]"
         style={{
           background:
             'radial-gradient(circle 210px at var(--lx, 30%) var(--ly, 45%), rgba(254, 226, 226, 0.03) 0%, rgba(239, 68, 68, 0.12) 18%, rgba(12, 18, 34, 0.54) 44%, rgba(5, 8, 18, 0.84) 70%, rgba(2, 4, 10, 0.95) 100%)',
@@ -369,7 +369,12 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
       </div>
 
       {/* Ultra-Clean, Focused Left-Aligned Hero Content (Synced Zoom Container) */}
-      <div ref={contentZoomRef} className="relative z-10 max-w-xl space-y-6 pointer-events-auto will-change-transform">
+      <div
+        ref={contentZoomRef}
+        className={`relative z-30 max-w-xl space-y-6 will-change-transform ${
+          isIdleTracking ? 'pointer-events-auto' : 'pointer-events-none'
+        }`}
+      >
         <div
           ref={badgeRef}
           className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/90 border border-slate-200 text-slate-600 font-mono text-[11px] font-semibold shadow-sm"

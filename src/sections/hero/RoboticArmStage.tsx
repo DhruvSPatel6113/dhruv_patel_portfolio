@@ -332,6 +332,18 @@ function FacetedIndustrialArm({
 
   const isFiringRef = useRef(false);
   const facingRightRef = useRef(false);
+  const pointerRef = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const onPointerMove = (e: PointerEvent) => {
+      const w = window.innerWidth || 1;
+      const h = window.innerHeight || 1;
+      pointerRef.current.x = (e.clientX / w) * 2 - 1;
+      pointerRef.current.y = -((e.clientY / h) * 2 - 1);
+    };
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    return () => window.removeEventListener('pointermove', onPointerMove);
+  }, []);
   const projVec = useMemo(() => new THREE.Vector3(), []);
   const nozzleWorldPos = useMemo(() => new THREE.Vector3(), []);
   const targetWorldPos = useRef(new THREE.Vector3());
@@ -524,16 +536,27 @@ function FacetedIndustrialArm({
       perspCam.updateProjectionMatrix();
 
       if (isIdleTracking) {
-        currentBaseXRef.current = THREE.MathUtils.damp(currentBaseXRef.current, homeBaseX, 4.5, delta);
-
-        const { x, y } = state.pointer;
-        const safeMinX = -viewport.width * 0.34;
-        const safeMaxX = viewport.width * 0.46;
+        const { x, y } = pointerRef.current;
+        const safeMinX = -viewport.width * 0.44;
+        const safeMaxX = viewport.width * 0.44;
         const safeMinY = floorY + 0.85 * baseScale;
-        const safeMaxY = viewport.height * 0.34;
+        const safeMaxY = viewport.height * 0.36;
 
         const worldTx = THREE.MathUtils.clamp(x * (viewport.width * 0.48), safeMinX, safeMaxX);
-        const worldTy = THREE.MathUtils.clamp(y * (viewport.height * 0.42), safeMinY, safeMaxY);
+        const worldTy = THREE.MathUtils.clamp(y * (viewport.height * 0.44), safeMinY, safeMaxY);
+
+        // Slide base carriage along the bottom rail whenever cursor moves far from current base position
+        const rawDx = (worldTx - currentBaseXRef.current) / baseScale;
+        const comfortReach = 1.65;
+        let targetIdleBaseX = currentBaseXRef.current;
+        if (Math.abs(rawDx) > comfortReach) {
+          targetIdleBaseX = THREE.MathUtils.clamp(
+            worldTx - Math.sign(rawDx) * comfortReach * baseScale,
+            -viewport.width * 0.36,
+            viewport.width * 0.36
+          );
+        }
+        currentBaseXRef.current = THREE.MathUtils.damp(currentBaseXRef.current, targetIdleBaseX, 4.5, delta);
 
         const shoulderWorldY = floorY + 1.36 * baseScale;
         const dx = (worldTx - currentBaseXRef.current) / baseScale;
@@ -655,16 +678,16 @@ function FacetedIndustrialArm({
       {/* Dynamic Blood-Red Arc Light casting reflections onto arm & rail */}
       <pointLight ref={arcLightRef} color="#ef4444" intensity={0} distance={8} decay={1.6} />
 
-      {/* REFLECTIVE LINEAR GANTRY RAIL ALONG BOTTOM EDGE */}
+      {/* REFLECTIVE LINEAR GANTRY RAIL ALONG BOTTOM EDGE (FULL VIEWPORT WIDTH) */}
       <group position={[0, floorY + 0.04, -0.05]}>
         <mesh material={reflectiveRailMat}>
-          <boxGeometry args={[viewport.width * 0.9, 0.048, 0.42]} />
+          <boxGeometry args={[viewport.width * 1.15, 0.048, 0.42]} />
         </mesh>
         <mesh position={[0, 0.03, 0.16]} material={silverArmor}>
-          <boxGeometry args={[viewport.width * 0.9, 0.018, 0.045]} />
+          <boxGeometry args={[viewport.width * 1.15, 0.018, 0.045]} />
         </mesh>
         <mesh position={[0, 0.03, -0.16]} material={silverArmor}>
-          <boxGeometry args={[viewport.width * 0.9, 0.018, 0.045]} />
+          <boxGeometry args={[viewport.width * 1.15, 0.018, 0.045]} />
         </mesh>
       </group>
 
@@ -832,12 +855,13 @@ export default function RoboticArmStage({
   onGripperScreenPos?: (x: number, y: number) => void;
 }) {
   return (
-    <div className="absolute inset-0 z-20 pointer-events-none">
+    <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-screen z-20 pointer-events-none">
       <Canvas
         frameloop={isInView ? 'always' : 'demand'}
         camera={{ position: [0, 0.0, 5.5], fov: 42 }}
         gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.08 }}
         dpr={[1, 1.5]}
+        style={{ pointerEvents: 'none' }}
       >
         <StudioEnvironment intensity={0.38} />
         <ambientLight intensity={0.95} />

@@ -738,13 +738,13 @@ function TwoTableAssemblyCell({
       {/* LINEAR GANTRY RAIL DEPLOYING AT BOTTOM FOR HERO HANDOFF */}
       <group ref={railRef} position={[0, floorY - 1.2, -0.05]} visible={false}>
         <mesh material={reflectiveRailMat}>
-          <boxGeometry args={[frontWidth * 0.9, 0.048, 0.42]} />
+          <boxGeometry args={[frontWidth * 1.15, 0.048, 0.42]} />
         </mesh>
         <mesh position={[0, 0.03, 0.16]} material={silverArmor}>
-          <boxGeometry args={[frontWidth * 0.9, 0.018, 0.045]} />
+          <boxGeometry args={[frontWidth * 1.15, 0.018, 0.045]} />
         </mesh>
         <mesh position={[0, 0.03, -0.16]} material={silverArmor}>
-          <boxGeometry args={[frontWidth * 0.9, 0.018, 0.045]} />
+          <boxGeometry args={[frontWidth * 1.15, 0.018, 0.045]} />
         </mesh>
       </group>
 
