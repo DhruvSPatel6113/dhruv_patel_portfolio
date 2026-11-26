@@ -2,271 +2,357 @@ import { PortfolioData } from '@/types';
 
 export const portfolioData: PortfolioData = {
   profile: {
-    name: "Dhruv Patel",
-    tagline: "Computer Science & Engineering | Low-Level Systems & Hardware Innovator",
-    subline: "Bridging algorithmic software, custom silicon, and real-world industrial machines.",
-    college: "Vellore Institute of Technology (VIT Vellore)",
-    gradYear: "2029",
-    email: "patel.dhruv6113@gmail.com",
-    github: "https://github.com/DhruvSPatel6113",
-    linkedin: "https://linkedin.com/in/dhruvpatel6113",
-    location: "Vellore / Gujarat, India"
+    name: 'Dhruv Patel',
+    college: 'Vellore Institute of Technology (VIT Vellore)',
+    cgpa: '7.62',
+    gradYear: '2029',
+    email: 'patel.dhruv6113@gmail.com',
+    github: 'https://github.com/DhruvSPatel6113',
+    linkedin: 'https://linkedin.com/in/dhruvpatel6113',
+    location: 'Vellore / Gujarat, India',
+  },
+  hero: {
+    statusBadge: "VIT VELLORE '29 • SIH '26 WINNER • ICRTAC'26 AUTHOR",
+    name: 'DHRUV PATEL.',
+    headline: 'Relentless builder upgrading across silicon, edge AI, and systems.',
+    subheadline:
+      'I ship end-to-end engineering—from 24V opto-isolated factory PCBs and real-time SCADA twins to YOLOv11 edge vision and low-level C++ systems. Whatever the task demands, I learn it and finish it.',
+    primaryCtaLabel: 'Explore Research',
+    primaryCtaTarget: 'act-3',
+    secondaryCtaLabel: 'Featured Projects',
+    secondaryCtaTarget: 'act-5',
+    githubUrl: 'https://github.com/DhruvSPatel6113',
+    resumeUrl: '',
+    highlights: [
+      '2+ YRS PRODUCTION ROBOTIC GRIPPER',
+      '9TH ICRTAC\'26 ACCEPTED PAPER',
+      'SIH \'26 INTERNAL WINNER (ROBOTICS & DRONES)',
+    ],
   },
   chapters: [
     {
       id: 0,
-      actTitle: "ACT 0: THE SPARK",
-      heading: "The Machine Shop & The Maker's Intuition",
-      tagline: "Where curiosity met steel, grease, and tools.",
+      actTitle: 'ACT 00 // THE PHYSICAL ORIGIN',
+      heading: 'The Factory Shop & Maker Intuition',
+      tagline: 'Where curiosity met steel, grease, and industrial machinery.',
       location: "Father's Industrial Machine Workshop",
-      timeframe: "Early Roots & Childhood",
+      timeframe: 'Early Roots',
       narrativeText: [
-        "Before I wrote a single line of code, my playground was my father's factory workshop. While other kids were given finished toys, I took mine apart to see how gears meshed and motors whirred.",
-        "I spent hours beside my father as he modified, fabricated, and debugged industrial machinery for real manufacturing lines. Handing him wrenches, holding calipers, and watching raw metal turn into functional mechanical systems instilled a physical intuition for how things are built."
+        "Before I wrote a single line of code, my playground was my father's factory workshop. While other kids played with finished toys, I dismantled mine to see how gears meshed and electric motors whirred.",
+        'Standing beside my father as he fabricated industrial machinery instilled a visceral intuition for mechanical tolerances, electrical load, and building things that survive real production floors.',
       ],
       milestones: [
-        "Dismantled and reverse-engineered mechanical toys & motors",
-        "Apprenticed in father's industrial machinery workshop",
-        "Developed visceral understanding of mechanics, tolerance, and physical forces"
+        'Reverse-engineered mechanical assemblies & DC motors',
+        'Hands-on fabrication in active manufacturing workshop',
       ],
-      cameraFocus: {
-        position: [0, 1.2, 3.8],
-        target: [0, 0.2, 0]
-      },
-      themeColor: "#f5a623"
+      themeColor: '#f59e0b',
     },
     {
       id: 1,
-      actTitle: "ACT 1: THE SYNAPSE",
-      heading: "Lockdown Awakening: Code as Pure Creation",
-      tagline: "From physical tools to digital architectures.",
-      location: "Home Terminal Station",
-      timeframe: "COVID-19 Lockdown (2020 - 2021)",
+      actTitle: 'ACT 01 // THE DIGITAL SYNAPSE',
+      heading: 'Lockdown Awakening: Code as Creation',
+      tagline: 'From physical wrenches to software architectures.',
+      location: 'Home Terminal',
+      timeframe: '2020 – 2021',
       narrativeText: [
-        "When the world paused during the lockdown, my curiosity found a new canvas: programming. Sitting at a keyboard, I realized that code is the ultimate workshop—where you can build complex machines without physical constraints.",
-        "I dove headfirst into programming fundamentals, developing 2D games, basic mobile applications, and algorithmic simulations. Software wasn't just homework; it was the ability to architect logic that breathes life into empty memory."
+        'When the world paused during lockdown, my workshop moved to a keyboard. I realized software is a frictionless machine shop where you can architect complex logic from scratch.',
+        'I dove into algorithms, 2D physics loops, and automation scripts—turning curiosity into a habit of shipping relentlessly.',
       ],
       milestones: [
-        "Mastered foundational programming, logic gates, and software structure",
-        "Built early 2D games and native mobile applications from scratch",
-        "Discovered the bridge between computer science theory and practical creation"
+        'Built 2D physics & algorithmic simulation loops',
+        'Transitioned from scripting to full-stack & systems C/C++',
       ],
-      cameraFocus: {
-        position: [-1.8, 1.4, 3.2],
-        target: [-0.4, 0.3, 0]
-      },
-      themeColor: "#00f0ff"
+      themeColor: '#0284c7',
     },
     {
       id: 2,
-      actTitle: "ACT 2: CODE MEETS STEEL",
-      heading: "The Industrial Gripper: Software in Production",
-      tagline: "A custom robotic attachment running live for 2+ years.",
-      location: "Active Manufacturing Line",
-      timeframe: "Industrial Hardware Deployment",
+      actTitle: 'ACT 02 // CODE MEETS STEEL',
+      heading: 'Custom PCBs & 2Y+ Production Gripper',
+      tagline: '24V/5V opto-isolated hardware running live on a factory floor.',
+      location: 'Active Manufacturing Line',
+      timeframe: 'Production Hardware',
       narrativeText: [
-        "Writing software on a screen wasn't enough—I needed my code to push against reality. I combined my programming with electronics: etching custom PCBs, soldering microcontroller circuits, and diving into robotics.",
-        "I designed, programmed, and deployed a custom 1-axis pick-and-place robotic gripper. We installed it as a permanent attachment in my father's manufacturing plant. Today, that exact gripper has been operating non-stop on the production floor for over 2 years."
+        'Software on a screen wasn’t enough—I needed my code to move physical steel. I designed 24V/5V opto-isolated ATmega328 & MOSFET driver PCBs and programmed an autonomous 1-axis pick-and-place robotic gripper.',
+        'Installed permanently in my father’s factory, that exact system has operated non-stop for over 2 continuous years with zero maintenance failures.',
       ],
       milestones: [
-        "Designed and fabricated custom circuit boards and actuator drivers",
-        "Engineered autonomous 1-axis pick-and-place robotic gripper",
-        "Deployed into active manufacturing plant floor — running successfully for 2+ years"
+        'Designed 24V/5V opto-isolated MOSFET & optocoupler PCBs (Fritzing)',
+        '2+ years continuous production uptime (10,000+ cycles)',
       ],
-      cameraFocus: {
-        position: [1.8, 1.2, 3.0],
-        target: [0.5, 0.2, 0]
-      },
-      themeColor: "#10b981"
+      themeColor: '#10b981',
     },
     {
       id: 3,
-      actTitle: "ACT 3: THE SYSTEMS MATRIX",
-      heading: "CSE @ VIT Vellore & Low-Level Frontiers",
-      tagline: "Exploring dynamic memory, physics engines, and IoT firmware.",
-      location: "Systems Architecture Lab, VIT '29",
-      timeframe: "Present Day",
+      actTitle: 'ACT 03 // SYSTEMS & RESEARCH FRONTIER',
+      heading: 'VIT Vellore, SIH ’26 & Edge AI Research',
+      tagline: 'Constantly upgrading across edge vision, RTOS security, and SCADA.',
+      location: "VIT Vellore • B.Tech CSE '29",
+      timeframe: '2025 – Present',
       narrativeText: [
-        "Now pursuing B.Tech in Computer Science & Engineering at VIT Vellore ('29), my focus has sharpened into systems programming, low-level memory architectures, dynamic algorithms, and enterprise scale.",
-        "From inspecting pointer references with C++ Memory Visualizer to simulating rigid-body physics with Matter.js and building secure OTA firmware pipelines with AEGIS-OTA, I engineer software that knows exactly what the hardware is doing."
+        "Pursuing B.Tech CSE at VIT Vellore ('29), I push myself across domains—winning the SIH '26 Internal Hackathon under Robotics & Drones and authoring an accepted 9th ICRTAC'26 conference paper on edge-based solar panel defect segmentation.",
+        'From secure dual-bank ESP32 OTA engines (AEGIS-OTA) to Factory I/O Digital Twin SCADA systems (Project Apex), I never stop upgrading my stack to solve the problem in front of me.',
       ],
       milestones: [
-        "B.Tech CSE at VIT Vellore ('29) specializing in systems & intelligence",
-        "Author of 'cpp_memory_visualizer' and 'alloc_dynamics' memory engines",
-        "Architected 'AEGIS-OTA' for secure remote firmware updates"
+        "Winner — Smart India Hackathon (SIH '26) Internal Round (Robotics & Drones)",
+        "Accepted Paper — 9th ICRTAC'26 (YOLOv11-seg Edge Solar Inspection)",
       ],
-      cameraFocus: {
-        position: [0, 1.6, 3.4],
-        target: [0, 0.4, 0]
-      },
-      themeColor: "#7928ca"
+      themeColor: '#6366f1',
+    },
+  ],
+  research: [
+    {
+      id: 'icrtac-26-solar-inspect',
+      title:
+        'Edge-Based Solar Panel Inspection Using Instance Segmentation for Automated Defect Quantification and Efficiency Assessment',
+      venue: "9th ICRTAC'26 (Accepted Conference Paper)",
+      date: 'Nov 2026',
+      status: 'Accepted',
+      authors: ['Rajveer Singh', 'Dhruv Patel', 'Rakshit Goyal', 'Rashmi Ranjan Das'],
+      abstract:
+        'Replaces conventional bounding-box detectors with pixel-level YOLOv11-seg (yolo11n-seg) instance segmentation to compute exact surface contamination and real-time PV efficiency loss (24.34%–100%). Deployed completely offline on a Raspberry Pi 5 (8GB) with Intel RealSense D405 RGB-D, Fluke Ti480 IR thermal imaging, and a 7-inch Kivy kiosk UI—validated across 6 real-world scenarios at VIT Vellore.',
+      metrics: [
+        '0.9446 mAP@50 (crack.pt)',
+        '24.34% – 100% Real-Time Efficiency',
+        '4.4 – 8.1 FPS / 151.3 ms Latency',
+        '100% Offline Edge (TRL 6)',
+      ],
+      hardwareStack: ['Raspberry Pi 5 (8GB)', 'Intel RealSense D405', 'Fluke Ti480 Thermal', '7" Touchscreen'],
+      softwareStack: ['YOLOv11-seg', 'Python', 'C++', 'CUDA', 'PyTorch / ONNX', 'OpenCV', 'Kivy'],
+      paperUrl: '',
+      codeUrl: '',
+    },
+  ],
+  experiences: [
+    {
+      id: 'sih-26-winner',
+      type: 'achievement',
+      role: 'Winner — Robotics & Drones Domain',
+      organization: "Smart India Hackathon (SIH '26) Internal Hackathon, VIT Vellore",
+      period: '2026',
+      location: 'VIT Vellore',
+      summary:
+        'Won the VIT internal selection round under the Robotics & Drones track by architecting a hardware-software autonomous system under tight hackathon constraints.',
+      highlights: [
+        'Selected among top university teams for SIH ’26 Robotics & Drones',
+        'Designed end-to-end embedded telemetry and control architecture',
+      ],
+      badge: 'SIH ’26 Winner',
     },
     {
-      id: 4,
-      actTitle: "ACT 4: OFF THE SCREEN",
-      heading: "Speed, Strategy & Solo Horizons",
-      tagline: "District-level sports, racing aerodynamics, and markets.",
-      location: "The Pitch, Track & Travel Terrains",
-      timeframe: "Beyond the Keyboard",
-      narrativeText: [
-        "Engineering requires stamina and sharp reflexes. Outside the terminal, I competed at district levels in both Cricket and Volleyball, cultivating high-pressure team leadership and split-second decision making.",
-        "My passion for speed draws me to racing mechanics, telemetry analysis, and automotive dynamics. When I'm not studying race craft or traveling solo across new terrains, I actively analyze and invest in stock markets—treating financial dynamics as complex distributed algorithms."
+      id: 'factory-automation',
+      type: 'achievement',
+      role: 'Embedded & Industrial Automation Lead',
+      organization: 'Production Manufacturing Line (Custom Hardware Deployment)',
+      period: '2024 – Present',
+      location: 'Gujarat, India',
+      summary:
+        'Engineered custom 24V/5V opto-isolated PCB driver boards and an autonomous 1-axis pick-and-place robotic gripper deployed permanently on a live factory floor.',
+      highlights: [
+        '2+ years continuous production uptime with zero maintenance failures',
+        'Custom ATmega328/Arduino optocoupler & MOSFET isolation schematics',
       ],
-      milestones: [
-        "District-Level Athlete: Competitive Cricket & Volleyball",
-        "Automotive & Racing enthusiast: telemetry, aerodynamics & mechanics",
-        "Active stock market investor & equity portfolio builder",
-        "Solo explorer with a passion for high-adrenaline adventure"
-      ],
-      cameraFocus: {
-        position: [1.2, 1.1, 3.2],
-        target: [0.2, 0.1, 0]
-      },
-      themeColor: "#ff0055"
+      badge: '2+ Yrs Uptime',
     },
     {
-      id: 5,
-      actTitle: "ACT 5: TRANSMISSION",
-      heading: "Mission Control & Uplink",
-      tagline: "Let's architect the next breakthrough together.",
-      location: "Global Communications Console",
-      timeframe: "Direct Line Open",
-      narrativeText: [
-        "Whether it's building low-level systems, designing real-time automation, architecting high-performance web backends, or collaborating on hardware-software ventures—I'm always ready to push boundaries.",
-        "Send a message through the terminal dispatch below. It transmits directly to my inbox with real-time confirmation."
+      id: 'robovitics-club',
+      type: 'club',
+      role: 'Junior Core & Organizing Committee (OC)',
+      organization: 'roboVITics — Official Robotics Club of VIT',
+      period: 'Mar 2026 – Present',
+      location: 'VIT Vellore',
+      summary:
+        'Core organizer driving hands-on robotics workshops and flagship national techfest competitions.',
+      highlights: [
+        'Organized "Hands on Robotics" workshop for 150+ participants with a 100% bot completion rate',
+        'Coordinated Robowars at Gravitas (VIT flagship techfest) for competing teams across India',
       ],
-      milestones: [
-        "Open for innovative engineering collaborations & robotics ventures",
-        "Direct email dispatch pipeline straight to patel.dhruv6113@gmail.com",
-        "Encrypted local admin access enabled via covert terminal trigger"
+      badge: 'Robotics Club',
+    },
+    {
+      id: 'bulls-and-bears-tam',
+      type: 'club',
+      role: 'Junior Core — Technical Operations',
+      organization: 'Bulls and Bears & TAM-VIT',
+      period: 'Jan 2026 – Present',
+      location: 'VIT Vellore',
+      summary:
+        'Managing technical operations, tooling, and event execution across finance and technology-management student chapters.',
+      highlights: [
+        'Coordinated technical operations across concurrent student events',
+        'Bridged quantitative market interest with campus technical workflows',
       ],
-      cameraFocus: {
-        position: [0, 1.0, 3.6],
-        target: [0, 0, 0]
-      },
-      themeColor: "#00f0ff"
-    }
+      badge: 'Tech Ops',
+    },
   ],
   projects: [
     {
-      id: "cpp-memory-visualizer",
-      title: "Cpp Memory Visualizer & Alloc Dynamics",
-      subtitle: "Dynamic Memory Layout Inspector & Heap Debugger",
-      category: "systems",
-      tags: ["C++", "Memory Management", "Pointers", "Data Structures", "Visualizer"],
-      summary: "Interactive visual debugger and memory layout inspector built to demystify dynamic memory allocation, pointer references, stack/heap boundaries, and memory alignment.",
-      story: "Built to provide deep visual clarity into how C++ operates at the byte level. Shows pointer hops, memory fragmentation, allocations, and deallocations in real-time.",
-      metrics: ["Real-time heap inspection", "Byte-level pointer tracking", "Zero-overhead visual engine"],
-      githubUrl: "https://github.com/DhruvSPatel6113/cpp_memory_visualizer",
+      id: 'icrtac-solardetect',
+      title: 'SolarDetect: Edge PV Defect Segmentation',
+      subtitle: "9th ICRTAC'26 Accepted • Offline RPi 5 + Thermal Vision",
+      category: 'edge-ai',
+      tags: ['YOLOv11-seg', 'Python', 'C++', 'CUDA', 'RPi 5', 'Fluke Ti480', 'RealSense D405'],
+      summary:
+        'Pixel-level instance segmentation system quantifying dust, bird droppings, cracks, and thermal hotspots on solar panels to compute real-time efficiency loss completely offline.',
+      story:
+        'Replaces inaccurate bounding-box estimates with binary pixel masks (PTotal vs PDefect), running PyTorch/ONNX models on Raspberry Pi 5 with live Kivy touchscreen diagnostics.',
+      metrics: ['0.9446 mAP@50', '4.4–8.1 FPS (151.3 ms)', '24.34%–100% Efficiency Calc'],
       featured: true,
-      modelType: "code"
+      modelType: 'chart',
     },
     {
-      id: "physics-and-algorithm-experiments",
-      title: "Physics & Algorithm Experiments",
-      subtitle: "2D Rigid-Body Mechanics & Trajectory Simulator",
-      category: "simulation",
-      tags: ["JavaScript", "Matter.js", "p5.js", "Physics Engine", "Math"],
-      summary: "Interactive simulation laboratory exploring 2D rigid-body mechanics, impulse resolution, elastic collisions, projectile trajectories, and particle dynamics.",
-      story: "Developed to test physical law implementations in web browsers. Includes custom collision meshes, gravity fields, and interactive physics sandboxes.",
-      metrics: ["60 FPS physics loop", "Sub-pixel collision detection", "Interactive browser demo"],
-      githubUrl: "https://github.com/DhruvSPatel6113/physics_and_algorithm_experiments",
-      demoUrl: "https://dhruvspatel6113.github.io/physics_and_algorithm_experiments/",
+      id: 'aegis-ota',
+      title: 'AEGIS-OTA: Dual-Bank Secure OTA Engine',
+      subtitle: 'ESP32 FreeRTOS + ATECC608A Crypto + MAX6369 Watchdog',
+      category: 'iot',
+      tags: ['ESP32', 'C/C++', 'FreeRTOS', 'ATECC608A', 'MAX6369', 'I2C', 'Wokwi'],
+      summary:
+        'Cryptographically verified dual-bank (app0/app1) OTA firmware engine on ESP32 with custom ATECC608A I2C signature verification and a 400 ms MAX6369 hardware watchdog for automatic rollback.',
+      story:
+        'Prevents bricking and malicious firmware injection on remote IoT nodes by enforcing hardware-level heartbeat monitoring and rollback recovery across dual flash partitions.',
+      metrics: ['Dual-bank app0/app1 rollback', 'ATECC608A I2C verification', '400 ms hardware watchdog'],
+      githubUrl: 'https://github.com/DhruvSPatel6113/AEGIS-OTA',
       featured: true,
-      modelType: "chart"
+      modelType: 'chip',
     },
     {
-      id: "industrial-gripper",
-      title: "Autonomous 1-Axis Robotic Gripper",
-      subtitle: "Production Manufacturing Attachment",
-      category: "automation",
-      tags: ["Robotics", "Embedded C", "Custom PCB", "Industrial Automation", "Pneumatics"],
-      summary: "Custom engineered 1-axis pick-and-place robotic gripper deployed in an active industrial factory. Features custom PCB logic and pneumatic actuator timing.",
-      story: "Designed from scratch to solve a repetitive material handling bottleneck in his father's factory. Programmed embedded microcontrollers, drafted mechanical linkages, and installed on the active factory floor.",
-      metrics: ["2+ Years continuous uptime", "10,000+ operational cycles", "Zero maintenance failures"],
+      id: 'project-apex',
+      title: 'Project Apex: Digital Twin SCADA & Sorter',
+      subtitle: 'Factory I/O 3D Physics + Python Modbus TCP/IP Master',
+      category: 'automation',
+      tags: ['Python', 'Modbus TCP/IP', 'Flask-SocketIO', 'Factory I/O', 'SCADA', 'HIL/SITL'],
+      summary:
+        'HIL/SITL Digital Twin SCADA bridging Factory I/O 3D plant physics with a thread-locked Python Modbus TCP/IP master, bi-directional physical panel sync, NC E-stop safety, and live WebSocket telemetry.',
+      story:
+        'Synchronizes physical control panel switches, vision-sensor color sorting diverters, and emergency stop interlocks at 20 Hz with real-time PPM/PPH analytics.',
+      metrics: ['20 Hz Modbus TCP/IP sync', 'NC E-Stop safety interlock', 'Live Socket.IO HMI'],
+      githubUrl: 'https://github.com/DhruvSPatel6113/project-apex-scada',
       featured: true,
-      modelType: "robot"
+      modelType: 'robot',
     },
     {
-      id: "aegis-ota",
-      title: "AEGIS-OTA",
-      subtitle: "Secure Over-The-Air Firmware Distribution Framework",
-      category: "iot",
-      tags: ["IoT", "Firmware", "Embedded Systems", "Security", "C/C++"],
-      summary: "Cryptographically verified Over-The-Air (OTA) firmware update pipeline for distributed IoT and microcontroller clusters.",
-      story: "Prevents bricking and malicious payload injection in remote hardware by utilizing checksum verification, rollback recovery, and differential delta updates.",
-      metrics: ["Cryptographic payload signing", "Automated rollback protection", "Lightweight RAM footprint"],
-      githubUrl: "https://github.com/DhruvSPatel6113/AEGIS-OTA",
+      id: 'industrial-pcb-gripper',
+      title: '24V/5V Opto-Isolated PCB & Robotic Gripper',
+      subtitle: 'Custom Fritzing Schematics + 2Y+ Factory Automation',
+      category: 'automation',
+      tags: ['PCB Design', 'ATmega328', 'Optocouplers', 'MOSFET Drivers', 'Embedded C', 'Pneumatics'],
+      summary:
+        'Custom 24V-to-5V opto-isolated ATmega328/Arduino driver PCBs with MOSFET output stages and fuse protection, driving a 1-axis pick-and-place robotic gripper in live factory production.',
+      story:
+        'Designed to protect microcontroller logic from noisy 24V industrial solenoids and actuators—running continuously on the factory line for over 2 years.',
+      metrics: ['2+ Years continuous uptime', '24V/5V opto-isolation', '10,000+ factory cycles'],
       featured: true,
-      modelType: "chip"
+      modelType: 'circuit',
     },
     {
-      id: "shed-flow-inventory",
-      title: "ShedFlow Inventory Management",
-      subtitle: "Multi-Shed Industrial Supply Chain Application",
-      category: "fullstack",
-      tags: ["React Native", "Zustand", "Offline-First", "Industrial Logistics"],
-      summary: "Industrial warehouse tracking app with multi-shed synchronization, barcode scanning, offline persistence, and low-stock alerts.",
-      story: "Crafted specifically for fast-paced factory floors where internet connectivity fluctuates between sheds. Synchronizes seamlessly upon reconnection.",
-      metrics: ["100% offline functionality", "Multi-warehouse syncing", "Instant barcode lookup"],
-      githubUrl: "https://github.com/DhruvSPatel6113/shed_flow_inventory",
+      id: 'cpp-memory-visualizer',
+      title: 'C++ Memory Visualizer & Alloc Dynamics',
+      subtitle: 'Byte-Level Heap/Stack & Pointer Layout Inspector',
+      category: 'systems',
+      tags: ['C++', 'C++17', 'Memory Layout', 'Pointers', 'Heap Allocator'],
+      summary:
+        'Interactive visual debugger built to demystify dynamic memory allocation, pointer hops, stack/heap boundaries, alignment, and fragmentation at the byte level.',
+      story:
+        'Created to make low-level C++ memory behavior tangible and inspectable in real time.',
+      metrics: ['Byte-level pointer tracking', 'Real-time heap inspection', 'Coalescing analysis'],
+      githubUrl: 'https://github.com/DhruvSPatel6113/cpp_memory_visualizer',
       featured: true,
-      modelType: "circuit"
+      modelType: 'code',
     },
     {
-      id: "money-mastermind",
-      title: "Money Mastermind Simulation",
-      subtitle: "Financial Decision & Equity Investment Simulator",
-      category: "finance",
-      tags: ["React Native", "TypeScript", "Zustand", "Finance & Markets"],
-      summary: "Interactive financial decision and portfolio simulation featuring capital allocation, stock market compounding, debt mitigation, and risk mechanics.",
-      story: "Born from Dhruv's passion for stock market investing and mathematical modeling. Simulates compounding gains and market volatility.",
-      metrics: ["Real-time compounding math", "Market sentiment simulation", "Dynamic risk scoring"],
-      githubUrl: "https://github.com/DhruvSPatel6113/money_mastermind_app",
+      id: 'enterprise-library-system',
+      title: 'Enterprise Library Management System',
+      subtitle: 'PostgreSQL 16 Triggers/Cursors + Node.js + Docker',
+      category: 'fullstack',
+      tags: ['Node.js', 'Express', 'PostgreSQL 16', 'Prisma', 'JWT', 'Docker'],
+      summary:
+        'Production REST API and web application powered by PostgreSQL 16 stored triggers and cursors, Prisma ORM, JWT authentication, and containerized Docker deployment.',
+      story:
+        'Engineered for relational data integrity at the database engine layer alongside clean containerized API delivery.',
+      metrics: ['PostgreSQL 16 triggers & cursors', 'JWT auth + Prisma ORM', 'Dockerized deployment'],
+      githubUrl: 'https://github.com/DhruvSPatel6113',
       featured: true,
-      modelType: "chart"
-    }
+      modelType: 'code',
+    },
+    {
+      id: 'physics-and-algorithm-experiments',
+      title: 'Physics & Algorithm Experiments',
+      subtitle: '2D Rigid-Body Mechanics & Trajectory Simulator',
+      category: 'simulation',
+      tags: ['JavaScript', 'Matter.js', 'p5.js', 'Physics Engine'],
+      summary:
+        'Interactive simulation laboratory exploring 2D rigid-body mechanics, impulse resolution, elastic collisions, and projectile trajectories.',
+      story: 'Built to test real-time collision meshes and physics math directly in the browser.',
+      metrics: ['60 FPS physics loop', 'Sub-pixel collision detection'],
+      githubUrl: 'https://github.com/DhruvSPatel6113/physics_and_algorithm_experiments',
+      demoUrl: 'https://dhruvspatel6113.github.io/physics_and_algorithm_experiments/',
+      featured: false,
+      modelType: 'chart',
+    },
+    {
+      id: 'shed-flow-inventory',
+      title: 'ShedFlow Inventory Management',
+      subtitle: 'Offline-First Multi-Shed Industrial Supply Chain App',
+      category: 'fullstack',
+      tags: ['React Native', 'Zustand', 'Offline-First', 'Logistics'],
+      summary:
+        'Industrial warehouse tracking app with multi-shed synchronization, barcode scanning, and offline persistence for low-connectivity factory floors.',
+      story: 'Built for industrial sheds where Wi-Fi drops between bays.',
+      metrics: ['100% offline persistence', 'Multi-shed sync'],
+      githubUrl: 'https://github.com/DhruvSPatel6113/shed_flow_inventory',
+      featured: false,
+      modelType: 'circuit',
+    },
   ],
-  offScreen: [
+  beyond: [
     {
-      title: "District-Level Cricket",
-      category: "Competitive Sports",
-      tagline: "Precision, stamina, and match-winning tactical execution.",
-      details: "Represented district teams as an agile competitor. Learned the discipline of continuous practice and high-pressure team communication.",
-      badge: "District Athlete",
-      icon: "Trophy"
+      id: 'volleyball',
+      title: 'District-Level Volleyball',
+      category: 'sport',
+      tagline: 'Split-second court vision, aerial timing & team sync.',
+      details:
+        'Competed at the district level—sharpening fast-break communication, vertical discipline, and calm execution under match-point pressure.',
+      badge: 'District Athlete',
+      icon: 'Activity',
     },
     {
-      title: "District-Level Volleyball",
-      category: "Competitive Sports",
-      tagline: "Split-second aerial reflexes, court vision, and power.",
-      details: "Competed at the district level, mastering fast-break transitions, vertical jumping discipline, and collective court synchronization.",
-      badge: "District Spiker",
-      icon: "Activity"
+      id: 'cricket',
+      title: 'District-Level Cricket',
+      category: 'sport',
+      tagline: 'Tactical focus, stamina & high-pressure match execution.',
+      details:
+        'Represented district squads in competitive cricket, building resilience and split-second decision making across long formats.',
+      badge: 'District Athlete',
+      icon: 'Trophy',
     },
     {
-      title: "Racing & Automotive Telemetry",
-      category: "High-Octane Passion",
-      tagline: "The obsessive intersection of physics, aerodynamics, and velocity.",
-      details: "Fascinated by motorsport engineering—tire degradation graphs, downforce modeling, telemetry traces, and the limits of human/machine harmony.",
-      badge: "Track & Sim Enthusiast",
-      icon: "Gauge"
+      id: 'music',
+      title: 'Synthesizer & Jazz Drums',
+      category: 'music',
+      tagline: 'Polyrhythms, improvisation & analog/digital sound design.',
+      details:
+        'Playing synthesizer and jazz drums keeps my sense of timing, improvisation, and creative pattern-building sharp outside engineering.',
+      badge: 'Musician',
+      icon: 'Music',
     },
     {
-      title: "Stock Market & Equity Investing",
-      category: "Financial Systems",
-      tagline: "Analyzing market macro-cycles and capital compounding.",
-      details: "Active retail investor studying corporate balance sheets, industrial sector tailwinds, risk-adjusted returns, and algorithmic market structures.",
-      badge: "Market Investor",
-      icon: "TrendingUp"
+      id: 'travel',
+      title: 'Travelling & Exploring',
+      category: 'travel',
+      tagline: 'New terrains, new perspectives, zero comfort-zone limits.',
+      details:
+        'Love hitting the road to explore unfamiliar places, cultures, and landscapes—bringing fresh energy back to the workbench.',
+      badge: 'Explorer',
+      icon: 'Compass',
     },
-    {
-      title: "Solo Travel & Wilderness Exploration",
-      category: "Adventures",
-      tagline: "Stepping into unfamiliar territories with a backpack and a map.",
-      details: "Embraces solo travel expeditions across diverse topographies—pushing personal comfort zones and connecting with people from all walks of life.",
-      badge: "Solo Explorer",
-      icon: "Compass"
-    }
-  ]
+  ],
+  contact: {
+    badge: 'DIRECT PIPELINE',
+    heading: "Let's Build Something Extraordinary.",
+    description:
+      'Open for software engineering, embedded/robotics, and edge AI collaborations, internships, and high-impact hardware-software ventures.',
+    email: 'patel.dhruv6113@gmail.com',
+    location: 'Vellore / Gujarat, India',
+    githubUrl: 'https://github.com/DhruvSPatel6113',
+    linkedinUrl: 'https://linkedin.com/in/dhruvpatel6113',
+  },
 };

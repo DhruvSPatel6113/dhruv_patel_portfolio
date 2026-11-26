@@ -1,33 +1,28 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import dynamic from 'next/dynamic';
 import Lenis from 'lenis';
 import gsap from 'gsap';
-import { portfolioData } from '@/data/portfolioData';
-import { ProjectItem } from '@/types';
+import { portfolioData as defaultPortfolioData } from '@/data/portfolioData';
+import { PortfolioData } from '@/types';
 import { sound } from '@/utils/audio';
 import { Sparkles } from 'lucide-react';
 
-// Shared HUD & Admin
-import TelemetryHUD from '@/shared/hud/TelemetryHUD';
+// Shared HUD & Full-Site CMS
 import CommandPalette from '@/shared/hud/CommandPalette';
-import ChapterRail from '@/shared/hud/ChapterRail';
-import RotaryThrottle from '@/shared/hud/RotaryThrottle';
 import SecretCMSModal from '@/shared/admin/SecretCMSModal';
 
 // Independent Modular Sections
 import RobotLoader from '@/sections/loading';
 import HeroSection from '@/sections/hero';
 import StorySection from '@/sections/story';
-import PlaygroundSection from '@/sections/playground';
+import ResearchSection from '@/sections/research';
+import ExperienceSection from '@/sections/experience';
 import ProjectsSection from '@/sections/projects';
+import BeyondSection from '@/sections/beyond';
 import ContactSection from '@/sections/contact';
 
-const StoryStage = dynamic(
-  () => import('@/shared/3d/StoryStage'),
-  { ssr: false, loading: () => null }
-);
+const STORAGE_KEY = 'dhruv_portfolio_v2_content';
 
 export default function Home() {
   const siteWrapperRef = useRef<HTMLDivElement>(null);
@@ -37,10 +32,29 @@ export default function Home() {
   const [isGripperCycling, setIsGripperCycling] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSecretCMSOpen, setIsSecretCMSOpen] = useState(false);
-  const [projectsList, setProjectsList] = useState<ProjectItem[]>(portfolioData.projects);
+  const [siteContent, setSiteContent] = useState<PortfolioData>(defaultPortfolioData);
 
-  // Lock page scroll & park site at 100vh below viewport while loading curtain is active;
-  // only activate Lenis smooth scroll and interactions after curtain finishes!
+  // Hydrate persisted CMS edits if present
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as PortfolioData;
+        if (parsed && parsed.hero && parsed.projects) {
+          setSiteContent(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
+  const handleUpdateSiteContent = (updated: PortfolioData) => {
+    setSiteContent(updated);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch {}
+  };
+
+  // Lock page scroll & park site at 100vh below viewport while loading curtain is active
   useEffect(() => {
     if (isLoadingScreen) {
       window.scrollTo(0, 0);
@@ -77,7 +91,7 @@ export default function Home() {
       const progress = totalScroll > 0 ? Math.min(1, Math.max(0, window.scrollY / totalScroll)) : 0;
       setScrollProgress(progress);
 
-      const act = Math.min(6, Math.floor(progress * 7));
+      const act = Math.min(7, Math.floor(progress * 8));
       setActiveAct(act);
     };
 
@@ -147,27 +161,6 @@ export default function Home() {
           <span>REPLAY ROBOT LOADER</span>
         </button>
 
-        {/* 3D Atmospheric Depth Stage */}
-        <StoryStage progress={scrollProgress} activeAct={activeAct} />
-
-        {/* Shared Navigation & Telemetry HUD */}
-        <ChapterRail activeAct={activeAct} onSelectAct={(idx) => setActiveAct(idx)} />
-
-        <RotaryThrottle
-          progress={scrollProgress}
-          onChangeProgress={(val) => {
-            const totalScroll = document.documentElement.scrollHeight - window.innerHeight;
-            window.scrollTo({ top: val * totalScroll, behavior: 'auto' });
-          }}
-          onTriggerActuator={handleTriggerActuator}
-          isCycling={isGripperCycling}
-        />
-
-        <TelemetryHUD
-          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-          onSecretTrigger={() => setIsSecretCMSOpen(true)}
-        />
-
         <CommandPalette
           isOpen={isCommandPaletteOpen}
           onClose={() => setIsCommandPaletteOpen(false)}
@@ -175,21 +168,27 @@ export default function Home() {
           onSecretTrigger={() => setIsSecretCMSOpen(true)}
         />
 
-        {/* MAIN MODULAR SECTIONS */}
-        <main className="relative z-10 max-w-7xl mx-auto px-6 sm:px-10 pt-28 pb-20 space-y-36">
-          <HeroSection onNavigateSection={handleNavigateSection} />
-          <StorySection onTriggerActuator={handleTriggerActuator} />
-          <PlaygroundSection />
-          <ProjectsSection projects={projectsList} />
-          <ContactSection onSecretTrigger={() => setIsSecretCMSOpen(true)} />
+        {/* MAIN MODULAR SECTIONS (100% Data-Driven & CMS Editable) */}
+        <main className="relative z-10 max-w-7xl mx-auto px-6 sm:px-10 pt-0 pb-20 space-y-28">
+          <HeroSection
+            content={siteContent.hero}
+            isActive={!isLoadingScreen}
+            onNavigateSection={handleNavigateSection}
+          />
+          <StorySection chapters={siteContent.chapters} onTriggerActuator={handleTriggerActuator} />
+          <ResearchSection items={siteContent.research} />
+          <ExperienceSection items={siteContent.experiences} />
+          <ProjectsSection projects={siteContent.projects} />
+          <BeyondSection items={siteContent.beyond} />
+          <ContactSection content={siteContent.contact} onSecretTrigger={() => setIsSecretCMSOpen(true)} />
         </main>
 
-        {/* Stealth 2FA Studio CMS Modal */}
+        {/* Full-Site Stealth 2FA CMS Modal */}
         <SecretCMSModal
           isOpen={isSecretCMSOpen}
           onClose={() => setIsSecretCMSOpen(false)}
-          projects={projectsList}
-          onUpdateProjects={(updated) => setProjectsList(updated)}
+          content={siteContent}
+          onUpdateContent={handleUpdateSiteContent}
         />
       </div>
     </>

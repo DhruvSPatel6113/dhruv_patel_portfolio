@@ -2,18 +2,24 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
-    const { projects } = await req.json();
+    const body = await req.json();
 
-    if (!Array.isArray(projects)) {
-      return NextResponse.json({ error: 'Projects must be an array.' }, { status: 400 });
+    if (body.content && typeof body.content === 'object') {
+      return NextResponse.json({
+        success: true,
+        message: 'Full site content updated in session.',
+      });
     }
 
-    console.log(`[CMS UPDATE] Successfully synced ${projects.length} project items to session.`);
-    return NextResponse.json({
-      success: true,
-      message: 'Projects updated in local session store.',
-      count: projects.length,
-    });
+    if (Array.isArray(body.projects)) {
+      return NextResponse.json({
+        success: true,
+        message: 'Projects updated in session.',
+        count: body.projects.length,
+      });
+    }
+
+    return NextResponse.json({ error: 'Invalid CMS payload.' }, { status: 400 });
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'CMS update failed.';
     return NextResponse.json({ error: errorMessage }, { status: 500 });

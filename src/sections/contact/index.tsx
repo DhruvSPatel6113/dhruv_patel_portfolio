@@ -1,14 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
+import { ContactContent } from '@/types';
 import { Send, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { sound } from '@/utils/audio';
 
 interface ContactSectionProps {
+  content: ContactContent;
   onSecretTrigger: () => void;
 }
 
-export default function ContactSection({ onSecretTrigger }: ContactSectionProps) {
+export default function ContactSection({ content, onSecretTrigger }: ContactSectionProps) {
   const [contactForm, setContactForm] = useState({ name: '', email: '', subject: '', message: '' });
   const [contactStatus, setContactStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [contactMsg, setContactMsg] = useState('');
@@ -34,7 +36,7 @@ export default function ContactSection({ onSecretTrigger }: ContactSectionProps)
     }
 
     setContactStatus('sending');
-    setContactMsg('DISPATCHING DIRECT TRANSMISSION TO PATEL.DHRUV6113@GMAIL.COM...');
+    setContactMsg(`DISPATCHING DIRECT TRANSMISSION TO ${content.email.toUpperCase()}...`);
     sound.playClick();
 
     try {
@@ -61,21 +63,21 @@ export default function ContactSection({ onSecretTrigger }: ContactSectionProps)
 
   return (
     <>
-      <section id="act-6" className="space-y-8 scroll-mt-28 border-t border-slate-200 pt-20">
+      <section id="act-7" className="space-y-8 scroll-mt-28 border-t border-slate-200 pt-20">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           <div className="lg:col-span-5 space-y-4">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-sky-50 text-sky-700 text-xs font-mono font-bold tracking-wider">
-              <span>DIRECT PIPELINE</span>
+              <span>{content.badge}</span>
             </div>
             <h2 className="text-3xl sm:text-5xl font-black text-slate-950 tracking-tight leading-tight">
-              Let&apos;s Build Something Extraordinary.
+              {content.heading}
             </h2>
             <p className="text-sm text-slate-600 leading-relaxed font-normal">
-              Open for high-impact software engineering roles, full-stack application development, distributed systems architecture, and hardware-software ventures.
+              {content.description}
             </p>
             <div className="pt-2 text-xs font-mono text-slate-500 space-y-1">
-              <p>TRANSMISSION DESTINATION: patel.dhruv6113@gmail.com</p>
-              <p>LOCATION: Vellore / Gujarat, India</p>
+              <p>TRANSMISSION DESTINATION: {content.email}</p>
+              <p>LOCATION: {content.location}</p>
             </div>
           </div>
 
@@ -164,11 +166,11 @@ export default function ContactSection({ onSecretTrigger }: ContactSectionProps)
           &copy; {new Date().getFullYear()} DHRUV PATEL &bull; VIT VELLORE &apos;29
         </div>
         <div className="flex items-center gap-5">
-          <a href="https://github.com/DhruvSPatel6113" target="_blank" rel="noreferrer" className="hover:text-slate-900 transition-colors">
+          <a href={content.githubUrl} target="_blank" rel="noreferrer" className="hover:text-slate-900 transition-colors">
             GITHUB
           </a>
           <span>&bull;</span>
-          <a href="https://linkedin.com/in/dhruvpatel6113" target="_blank" rel="noreferrer" className="hover:text-slate-900 transition-colors">
+          <a href={content.linkedinUrl} target="_blank" rel="noreferrer" className="hover:text-slate-900 transition-colors">
             LINKEDIN
           </a>
           <span>&bull;</span>

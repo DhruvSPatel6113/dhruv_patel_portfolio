@@ -10,13 +10,14 @@ interface ChapterRailProps {
 
 export default function ChapterRail({ activeAct, onSelectAct }: ChapterRailProps) {
   const chapters = [
-    { index: 0, id: 'act-0', label: '00 // ORIGIN', title: 'The Machine Shop' },
-    { index: 1, id: 'act-1', label: '01 // SYNAPSE', title: 'Code as Creation' },
-    { index: 2, id: 'act-2', label: '02 // STEEL', title: 'Code Meets Steel' },
-    { index: 3, id: 'act-3', label: '03 // SYSTEMS', title: 'VIT Vellore Systems' },
-    { index: 4, id: 'act-4', label: '04 // PLAYGROUND', title: 'Interactive Engine' },
-    { index: 5, id: 'act-5', label: '05 // PROJECTS', title: 'Flagship Software' },
-    { index: 6, id: 'act-6', label: '06 // TRANSMISSION', title: 'Direct Transmission' },
+    { index: 0, id: 'act-0', label: '00 // HERO', title: 'Dhruv Patel' },
+    { index: 1, id: 'act-1', label: '01 // ORIGIN', title: 'Factory & Code' },
+    { index: 2, id: 'act-2', label: '02 // STEEL', title: '2Y+ Gripper & PCBs' },
+    { index: 3, id: 'act-3', label: '03 // RESEARCH', title: "ICRTAC'26 Paper" },
+    { index: 4, id: 'act-4', label: '04 // EXPERIENCE', title: 'Wins & Clubs' },
+    { index: 5, id: 'act-5', label: '05 // PROJECTS', title: 'Top Engineering' },
+    { index: 6, id: 'act-6', label: '06 // BEYOND', title: 'Sports & Music' },
+    { index: 7, id: 'act-7', label: '07 // CONTACT', title: 'Direct Pipeline' },
   ];
 
   const handleSelect = (idx: number, id: string) => {
