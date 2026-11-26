@@ -9,6 +9,7 @@ import { sound } from '@/utils/audio';
 
 interface RobotLoaderProps {
   onComplete?: () => void;
+  siteRef?: React.RefObject<HTMLDivElement>;
 }
 
 type FaceExpression = 'determined' | 'surprised' | 'dizzy' | 'happy';
@@ -808,7 +809,7 @@ function ResponsiveGroundShadow() {
 // ============================================================================
 // 7. MASTER LOADER TIMELINE & TWO-STAGE CURTAIN HOIST CONTROLLER
 // ============================================================================
-export default function RobotLoader({ onComplete }: RobotLoaderProps) {
+export default function RobotLoader({ onComplete, siteRef }: RobotLoaderProps) {
   const curtainRef = useRef<HTMLDivElement>(null);
   const overheadLayerRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
@@ -817,6 +818,8 @@ export default function RobotLoader({ onComplete }: RobotLoaderProps) {
   const sequenceStartedRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+  const siteRefCurrent = useRef(siteRef);
+  siteRefCurrent.current = siteRef;
 
   // Loading Progress Loop (0% -> 100%)
   useEffect(() => {
@@ -863,14 +866,18 @@ export default function RobotLoader({ onComplete }: RobotLoaderProps) {
       // 5. TWO-STAGE CURTAIN HOIST (Halfway -> Lower & Strain -> Final Clear!)
       const t4 = setTimeout(() => {
         if (!curtainRef.current || !overheadLayerRef.current) return;
+        const siteEl = siteRefCurrent.current?.current;
 
         const tl = gsap.timeline({
           onComplete: () => {
+            if (siteEl) {
+              gsap.set(siteEl, { clearProps: 'transform' });
+            }
             if (onCompleteRef.current) onCompleteRef.current();
           },
         });
 
-        // Beat A: Snug the curtain bottom edge right up to BEEP's feet (84.5vh), then pull halfway up!
+        // Beat A: Snug curtain edge to BEEP's feet (84.5vh), then pull halfway while pushing site up in 1:1 sync!
         tl.call(() => {
           sound.playPneumatic();
           setStage('curtain_half');
@@ -880,27 +887,54 @@ export default function RobotLoader({ onComplete }: RobotLoaderProps) {
             duration: 0.28,
             ease: 'power2.in',
           })
+          .to(
+            siteEl || {},
+            {
+              y: '84.5vh',
+              duration: 0.28,
+              ease: 'power2.in',
+            },
+            '<'
+          )
           .to(curtainRef.current, {
-            yPercent: -38,
+            y: '-40vh',
             duration: 0.8,
             ease: 'power2.out',
           })
+          .to(
+            siteEl || {},
+            {
+              y: '44.5vh',
+              duration: 0.8,
+              ease: 'power2.out',
+            },
+            '<'
+          )
           // Beat B: Pause, bot comes lower & applies force (>_< strain!)
           .call(() => {
             sound.playCartoonBoing();
             setStage('curtain_strain');
           })
           .to({}, { duration: 0.65 })
-          // Beat C: Final mighty heave — whole curtain goes away (-100%)
+          // Beat C: Final mighty heave — curtain clears top & site pushes cleanly to 0vh!
           .call(() => {
             sound.playPneumatic();
             setStage('curtain_final');
           })
           .to(curtainRef.current, {
-            yPercent: -100,
+            y: '-92vh',
             duration: 0.95,
             ease: 'power3.inOut',
           })
+          .to(
+            siteEl || {},
+            {
+              y: '0vh',
+              duration: 0.95,
+              ease: 'power3.inOut',
+            },
+            '<'
+          )
           // Overhead bot retracts cleanly out the top edge
           .to(
             overheadLayerRef.current,

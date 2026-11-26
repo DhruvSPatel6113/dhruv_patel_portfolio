@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Lenis from 'lenis';
+import gsap from 'gsap';
 import { portfolioData } from '@/data/portfolioData';
 import { ProjectItem } from '@/types';
 import { sound } from '@/utils/audio';
@@ -29,6 +30,7 @@ const StoryStage = dynamic(
 );
 
 export default function Home() {
+  const siteWrapperRef = useRef<HTMLDivElement>(null);
   const [isLoadingScreen, setIsLoadingScreen] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [activeAct, setActiveAct] = useState(0);
@@ -37,8 +39,24 @@ export default function Home() {
   const [isSecretCMSOpen, setIsSecretCMSOpen] = useState(false);
   const [projectsList, setProjectsList] = useState<ProjectItem[]>(portfolioData.projects);
 
-  // Smooth Inertial Scroll (Lenis) with Scroll Progress Mapping
+  // Lock page scroll & park site at 100vh below viewport while loading curtain is active;
+  // only activate Lenis smooth scroll and interactions after curtain finishes!
   useEffect(() => {
+    if (isLoadingScreen) {
+      window.scrollTo(0, 0);
+      setScrollProgress(0);
+      setActiveAct(0);
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+      if (siteWrapperRef.current) {
+        gsap.set(siteWrapperRef.current, { y: '100vh' });
+      }
+      return;
+    }
+
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+
     const lenis = new Lenis({
       duration: 1.2,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
@@ -69,7 +87,7 @@ export default function Home() {
       cancelAnimationFrame(rafId);
       lenis.destroy();
     };
-  }, []);
+  }, [isLoadingScreen]);
 
   // Global Stealth 2FA Hotkey: Ctrl + Shift + D
   useEffect(() => {
@@ -101,12 +119,28 @@ export default function Home() {
 
   return (
     <>
-      {isLoadingScreen && <RobotLoader onComplete={() => setIsLoadingScreen(false)} />}
+      {isLoadingScreen && (
+        <RobotLoader
+          siteRef={siteWrapperRef}
+          onComplete={() => setIsLoadingScreen(false)}
+        />
+      )}
 
-      <div className="relative min-h-screen bg-[#f8fafc] text-slate-900 selection:bg-sky-500 selection:text-white studio-grid font-sans antialiased overflow-x-hidden">
+      <div
+        ref={siteWrapperRef}
+        aria-hidden={isLoadingScreen}
+        className={
+          isLoadingScreen
+            ? 'fixed inset-0 z-10 min-h-screen bg-[#f8fafc] text-slate-900 studio-grid font-sans antialiased overflow-hidden pointer-events-none select-none will-change-transform'
+            : 'relative min-h-screen bg-[#f8fafc] text-slate-900 selection:bg-sky-500 selection:text-white studio-grid font-sans antialiased overflow-x-hidden'
+        }
+      >
         {/* Replay Loader Button */}
         <button
-          onClick={() => setIsLoadingScreen(true)}
+          onClick={() => {
+            window.scrollTo(0, 0);
+            setIsLoadingScreen(true);
+          }}
           className="fixed bottom-6 left-6 z-40 px-3 py-1.5 rounded-xl bg-white/90 backdrop-blur-md border border-slate-200 text-[11px] font-mono text-slate-700 hover:text-sky-600 shadow-md transition-all flex items-center gap-1.5 pointer-events-auto"
         >
           <Sparkles size={12} className="text-sky-500" />
