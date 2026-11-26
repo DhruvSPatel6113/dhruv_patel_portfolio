@@ -8,9 +8,6 @@
 .env.local
 .env.*.local
 
-# Local Skills and Agent extensions
-.agent/
-.agents/
 
 # Dependencies & build outputs
 node_modules/
