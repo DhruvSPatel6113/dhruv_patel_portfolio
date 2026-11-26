@@ -22,7 +22,8 @@ interface RobotLoaderProps {
 
 type LoaderPhase = 'assembling' | 'hold' | 'docking';
 
-const OVERHEAD_CAM_POS = new THREE.Vector3(0, 7.6, 2.2);
+const OVERHEAD_LANDSCAPE_POS = new THREE.Vector3(0, 7.6, 2.2);
+const OVERHEAD_PORTRAIT_POS = new THREE.Vector3(0, 9.6, 2.8);
 const FRONT_CAM_POS = new THREE.Vector3(0, 0, 5.5);
 
 function StudioEnvironment({ intensity = 0.42 }: { intensity?: number }) {
@@ -318,12 +319,14 @@ function TwoTableAssemblyCell({
 
   const frontHeight = 2 * Math.tan((42 * Math.PI) / 360) * 5.5;
   const frontWidth = frontHeight * (size.width / Math.max(1, size.height));
-  const { baseScale, homeBaseX, floorY, restPose } = getArmLayout({
+  const { baseScale, homeBaseX, floorY, restPose, isPortrait } = getArmLayout({
     width: frontWidth,
     height: frontHeight,
   });
 
-  const cellScale = Math.min(frontWidth * 0.092, 0.64);
+  const cellScale = isPortrait
+    ? Math.min(frontWidth * 0.125, 0.44)
+    : Math.min(frontWidth * 0.092, 0.64);
   const tableX = 2.08 * cellScale;
   const armScale = cellScale * 0.54;
   const helperScale = cellScale * 0.72;
@@ -563,8 +566,10 @@ function TwoTableAssemblyCell({
       railRef.current.visible = dockProgress > 0.02;
     }
 
-    perspCam.position.lerpVectors(OVERHEAD_CAM_POS, FRONT_CAM_POS, dockEase);
-    perspCam.fov = THREE.MathUtils.lerp(40, 42, dockEase);
+    const overheadPos = isPortrait ? OVERHEAD_PORTRAIT_POS : OVERHEAD_LANDSCAPE_POS;
+    const overheadFov = isPortrait ? 48 : 40;
+    perspCam.position.lerpVectors(overheadPos, FRONT_CAM_POS, dockEase);
+    perspCam.fov = THREE.MathUtils.lerp(overheadFov, 42, dockEase);
     perspCam.lookAt(0, 0, 0);
     perspCam.updateProjectionMatrix();
   });
@@ -982,7 +987,7 @@ export default function RobotLoader({ onComplete }: RobotLoaderProps) {
 
       {/* TOP-LEFT ANIMATED LOADING PERCENTAGE HUD */}
       <div
-        className={`fixed top-6 left-6 z-10 w-64 p-3.5 rounded-2xl bg-white/90 border border-slate-200 shadow-md transition-opacity duration-300 ${
+        className={`fixed top-4 left-4 w-52 p-3 sm:top-6 sm:left-6 sm:w-64 sm:p-3.5 z-10 rounded-2xl bg-white/90 border border-slate-200 shadow-md transition-opacity duration-300 ${
           phase === 'docking' ? 'opacity-0' : 'opacity-100'
         }`}
       >

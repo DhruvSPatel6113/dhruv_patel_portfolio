@@ -311,7 +311,7 @@ function FacetedIndustrialArm({
 }: RoboticArmProps) {
   const { viewport, camera, size, gl } = useThree();
 
-  const { baseScale, homeBaseX, floorY } = getArmLayout(viewport);
+  const { baseScale, homeBaseX, floorY, isPortrait } = getArmLayout(viewport);
 
   const baseGroupRef = useRef<THREE.Group>(null);
   const currentBaseXRef = useRef(homeBaseX);
@@ -335,14 +335,22 @@ function FacetedIndustrialArm({
   const pointerRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
-    const onPointerMove = (e: PointerEvent) => {
+    const updateFromClient = (clientX: number, clientY: number) => {
       const w = window.innerWidth || 1;
       const h = window.innerHeight || 1;
-      pointerRef.current.x = (e.clientX / w) * 2 - 1;
-      pointerRef.current.y = -((e.clientY / h) * 2 - 1);
+      pointerRef.current.x = (clientX / w) * 2 - 1;
+      pointerRef.current.y = -((clientY / h) * 2 - 1);
+    };
+    const onPointerMove = (e: PointerEvent) => updateFromClient(e.clientX, e.clientY);
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches[0]) updateFromClient(e.touches[0].clientX, e.touches[0].clientY);
     };
     window.addEventListener('pointermove', onPointerMove, { passive: true });
-    return () => window.removeEventListener('pointermove', onPointerMove);
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('touchmove', onTouchMove);
+    };
   }, []);
   const rayVec = useMemo(() => new THREE.Vector3(), []);
   const rayDir = useMemo(() => new THREE.Vector3(), []);
@@ -529,12 +537,12 @@ function FacetedIndustrialArm({
 
       // Harmonized cinematic camera zoom-in tracking the character being engraved
       if (activeFiring) {
-        const camGoalX = THREE.MathUtils.clamp(worldTx * 0.25, -0.8, 0.8);
-        const camGoalY = THREE.MathUtils.clamp(worldTy * 0.25, -0.5, 0.5);
+        const camGoalX = THREE.MathUtils.clamp(worldTx * (isPortrait ? 0.14 : 0.25), -0.8, 0.8);
+        const camGoalY = THREE.MathUtils.clamp(worldTy * (isPortrait ? 0.18 : 0.25), -0.5, 0.5);
         perspCam.position.x = THREE.MathUtils.damp(perspCam.position.x, camGoalX, 3.8, delta);
         perspCam.position.y = THREE.MathUtils.damp(perspCam.position.y, camGoalY, 3.8, delta);
-        perspCam.position.z = THREE.MathUtils.damp(perspCam.position.z, 4.65, 3.5, delta);
-        perspCam.fov = THREE.MathUtils.damp(perspCam.fov, 38, 3.5, delta);
+        perspCam.position.z = THREE.MathUtils.damp(perspCam.position.z, isPortrait ? 4.95 : 4.65, 3.5, delta);
+        perspCam.fov = THREE.MathUtils.damp(perspCam.fov, isPortrait ? 40 : 38, 3.5, delta);
         perspCam.updateProjectionMatrix();
       }
     } else {
@@ -557,13 +565,14 @@ function FacetedIndustrialArm({
 
         // Slide base carriage along the bottom rail whenever cursor moves far from current base position
         const rawDx = (worldTx - currentBaseXRef.current) / baseScale;
-        const comfortReach = 1.65;
+        const comfortReach = isPortrait ? 1.15 : 1.65;
+        const railBound = isPortrait ? 0.32 : 0.36;
         let targetIdleBaseX = currentBaseXRef.current;
         if (Math.abs(rawDx) > comfortReach) {
           targetIdleBaseX = THREE.MathUtils.clamp(
             worldTx - Math.sign(rawDx) * comfortReach * baseScale,
-            -viewport.width * 0.36,
-            viewport.width * 0.36
+            -viewport.width * railBound,
+            viewport.width * railBound
           );
         }
         currentBaseXRef.current = THREE.MathUtils.damp(currentBaseXRef.current, targetIdleBaseX, 4.5, delta);

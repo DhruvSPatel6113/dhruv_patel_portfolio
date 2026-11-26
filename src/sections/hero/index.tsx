@@ -187,6 +187,8 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
     gsap.set(splitHead.chars, { opacity: 0, color: '#ef4444' });
 
     // Pre-cache headline character client coordinates once to avoid layout thrashing during engraving
+    const isNarrow = window.innerWidth < 640;
+    const zoomScale = isNarrow ? 1.04 : 1.12;
     const zoomRect = contentZoomRef.current?.getBoundingClientRect();
     const zoomOriginX = zoomRect ? zoomRect.left + zoomRect.width * 0.2 : secRect.left;
     const zoomOriginY = zoomRect ? zoomRect.top + zoomRect.height * 0.42 : secRect.top;
@@ -196,8 +198,8 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
       const cy = r.top + r.height * 0.5;
       return {
         el: node as HTMLElement,
-        sx: zoomOriginX + (cx - zoomOriginX) * 1.12,
-        sy: zoomOriginY + (cy - zoomOriginY) * 1.12,
+        sx: zoomOriginX + (cx - zoomOriginX) * zoomScale,
+        sy: zoomOriginY + (cy - zoomOriginY) * zoomScale,
       };
     });
 
@@ -227,7 +229,7 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
         .to(bottomCinemaBarRef.current, { yPercent: 0, duration: 0.45, ease: 'power3.out' }, '<')
         .to(
           contentZoomRef.current,
-          { scale: 1.12, duration: 0.6, ease: 'power2.out', transformOrigin: '20% 42%' },
+          { scale: zoomScale, duration: 0.6, ease: 'power2.out', transformOrigin: '20% 42%' },
           '<'
         );
     }
@@ -319,7 +321,7 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
     <section
       id="act-0"
       ref={sectionRef}
-      className="relative min-h-screen flex flex-col justify-center overflow-visible"
+      className="relative min-h-screen flex flex-col justify-start pt-16 pb-56 sm:justify-center sm:pt-0 sm:pb-0 overflow-visible"
     >
       {/* Full-Width Open-Stage Faceted Industrial Arm + Blood-Red Laser + Sparks + Cinematic Post */}
       <RoboticArmStage
@@ -332,12 +334,12 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
       {/* 2.39:1 Cinematic Letterbox Bars */}
       <div
         ref={topCinemaBarRef}
-        className="fixed top-0 inset-x-0 h-10 sm:h-14 bg-black z-50 pointer-events-none will-change-transform"
+        className="fixed top-0 inset-x-0 h-7 sm:h-12 bg-black z-50 pointer-events-none will-change-transform"
         style={{ transform: 'translateY(-100%)' }}
       />
       <div
         ref={bottomCinemaBarRef}
-        className="fixed bottom-0 inset-x-0 h-10 sm:h-14 bg-black z-50 pointer-events-none will-change-transform"
+        className="fixed bottom-0 inset-x-0 h-7 sm:h-12 bg-black z-50 pointer-events-none will-change-transform"
         style={{ transform: 'translateY(100%)' }}
       />
 
@@ -347,7 +349,7 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
         className="fixed inset-0 z-40 pointer-events-none opacity-0 will-change-[opacity]"
         style={{
           background:
-            'radial-gradient(circle 195px at var(--lx, 30%) var(--ly, 45%), rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.25) 35%, rgba(0, 0, 0, 0.78) 65%, #000000 88%, #000000 100%)',
+            'radial-gradient(circle clamp(105px, 26vw, 200px) at var(--lx, 30%) var(--ly, 45%), rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.25) 35%, rgba(0, 0, 0, 0.78) 65%, #000000 88%, #000000 100%)',
         }}
       >
         {/* Blood-red optical scatter halo */}
@@ -386,7 +388,7 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
         <h1
           ref={titleRef}
           style={{ fontKerning: 'none', textRendering: 'optimizeSpeed' }}
-          className="text-5xl sm:text-7xl lg:text-8xl font-black tracking-tight text-slate-950 leading-[0.95] flex flex-col items-start"
+          className="text-4xl sm:text-7xl lg:text-8xl font-black tracking-tight text-slate-950 leading-[0.95] flex flex-col items-start"
         >
           <span className="block">{nameParts[0]}</span>
           {nameParts[1] && <span className="block">{nameParts[1]}</span>}
@@ -395,7 +397,7 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
         <p
           ref={headlineRef}
           style={{ fontKerning: 'none', textRendering: 'optimizeSpeed' }}
-          className="text-lg sm:text-xl text-slate-600 leading-relaxed font-normal max-w-lg"
+          className="text-base sm:text-xl text-slate-600 leading-relaxed font-normal max-w-lg"
         >
           {content.headline}
         </p>

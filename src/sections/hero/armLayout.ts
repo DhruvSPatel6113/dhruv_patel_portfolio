@@ -9,10 +9,14 @@ export interface ArmPose {
 }
 
 export function getArmLayout(viewport: { width: number; height: number }) {
+  const isPortrait = viewport.width < viewport.height * 0.85;
   return {
-    baseScale: Math.min(viewport.height * 0.23, viewport.width * 0.145),
-    homeBaseX: viewport.width * 0.27,
+    baseScale: isPortrait
+      ? Math.min(viewport.height * 0.145, viewport.width * 0.21)
+      : Math.min(viewport.height * 0.22, viewport.width * 0.145),
+    homeBaseX: isPortrait ? viewport.width * 0.18 : viewport.width * 0.27,
     floorY: -viewport.height * 0.5,
+    isPortrait,
     restPose: {
       turretYaw: 0,
       shoulderPitch: -0.15,

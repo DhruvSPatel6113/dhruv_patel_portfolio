@@ -157,7 +157,7 @@ export default function Home() {
         />
 
         {/* MAIN MODULAR SECTIONS (100% Data-Driven & CMS Editable) */}
-        <main className="relative z-10 max-w-7xl mx-auto px-6 sm:px-10 pt-0 pb-20 space-y-28">
+        <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 lg:px-10 pt-0 pb-16 sm:pb-20 space-y-20 sm:space-y-28">
           <HeroSection
             content={siteContent.hero}
             isActive={!isLoadingScreen}
