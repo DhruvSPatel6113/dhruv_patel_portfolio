@@ -4,15 +4,15 @@ import './globals.css';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://dhruvpatel-umber.vercel.app'),
-  title: 'Dhruv Patel | The Cyber-Physical Journey',
+  title: 'Dhruv Patel — Robotics, Edge AI & Systems',
   description: 'Interactive 3D narrative portfolio of Dhruv Patel — Computer Science & Engineering, Industrial Automation, Low-Level Systems, and Hardware Innovation.',
   icons: {
-    icon: '/favicon.svg',
+    icon: './public/favicon.svg',
   },
   openGraph: {
-    title: 'Dhruv Patel | Interactive 3D Portfolio',
+    title: 'Dhruv Patel — Robotics, Edge AI & Systems',
     description: 'Bridging algorithmic software, custom silicon, and real-world industrial machines.',
-    images: ['/favicon.svg'],
+    images: ['./public/favicon.svg'],
   },
 };
 
