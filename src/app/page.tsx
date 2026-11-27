@@ -27,6 +27,7 @@ export default function Home() {
   const siteWrapperRef = useRef<HTMLDivElement>(null);
   const [isLoadingScreen, setIsLoadingScreen] = useState(true);
   const [isEngravingDone, setIsEngravingDone] = useState(false);
+  const [isEngravingDark, setIsEngravingDark] = useState(false);
   const [activeAct, setActiveAct] = useState(0);
   const activeActRef = useRef(0);
   const [isGripperCycling, setIsGripperCycling] = useState(false);
@@ -145,8 +146,10 @@ export default function Home() {
         aria-hidden={isLoadingScreen}
         className={
           isLoadingScreen
-            ? 'fixed inset-0 z-10 min-h-screen bg-[#f8fafc] text-slate-900 studio-grid font-sans antialiased overflow-hidden pointer-events-none select-none will-change-transform'
-            : 'relative min-h-screen bg-[#f8fafc] text-slate-900 selection:bg-sky-500 selection:text-white studio-grid font-sans antialiased overflow-x-hidden'
+            ? 'fixed inset-0 z-10 min-h-screen bg-[#f8fafc] text-slate-900 studio-grid font-sans antialiased overflow-hidden pointer-events-none select-none will-change-transform transition-colors duration-500'
+            : `relative min-h-screen ${
+                isEngravingDark ? 'bg-[#020617] text-slate-50' : 'bg-[#f8fafc] text-slate-900'
+              } selection:bg-sky-500 selection:text-white studio-grid font-sans antialiased overflow-x-hidden transition-colors duration-500`
         }
       >
         <CommandPalette
@@ -162,6 +165,7 @@ export default function Home() {
             content={siteContent.hero}
             isActive={!isLoadingScreen}
             onEngravingComplete={() => setIsEngravingDone(true)}
+            onEngravingThemeChange={setIsEngravingDark}
             onNavigateSection={handleNavigateSection}
           />
           <StorySection chapters={siteContent.chapters} onTriggerActuator={handleTriggerActuator} />

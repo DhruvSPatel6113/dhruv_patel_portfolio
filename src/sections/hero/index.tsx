@@ -23,14 +23,23 @@ interface HeroSectionProps {
   content: HeroContent;
   isActive: boolean;
   onEngravingComplete?: () => void;
+  onEngravingThemeChange?: (isDark: boolean) => void;
   onNavigateSection: (sectionId: string) => void;
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-export default function HeroSection({ content, isActive, onEngravingComplete, onNavigateSection }: HeroSectionProps) {
+export default function HeroSection({
+  content,
+  isActive,
+  onEngravingComplete,
+  onEngravingThemeChange,
+  onNavigateSection,
+}: HeroSectionProps) {
   const onEngravingCompleteRef = useRef(onEngravingComplete);
   onEngravingCompleteRef.current = onEngravingComplete;
+  const onEngravingThemeChangeRef = useRef(onEngravingThemeChange);
+  onEngravingThemeChangeRef.current = onEngravingThemeChange;
   const sectionRef = useRef<HTMLElement>(null);
   const contentZoomRef = useRef<HTMLDivElement>(null);
   const spotlightOverlayRef = useRef<HTMLDivElement>(null);
@@ -82,6 +91,7 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
     if (!isActive) {
       hasPlayedEngraveRef.current = false;
       setIsIdleTracking(false);
+      onEngravingThemeChangeRef.current?.(false);
       laserTargetRef.current.active = false;
       laserTargetRef.current.fireLaser = false;
 
@@ -211,10 +221,11 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
 
     const tl = gsap.timeline();
 
-    // 1. Slide in cinema letterbox bars, fade in 0.95 dark diffusion layer & zoom in onto characters
+    // 1. Slide in cinema letterbox bars, invert site background, fade in dark diffusion layer & zoom in onto characters
     if (charJobs.length > 0) {
       setSpotlight(charJobs[0].startX, charJobs[0].startY);
       tl.call(() => {
+        onEngravingThemeChangeRef.current?.(true);
         laserTargetRef.current = {
           active: true,
           fireLaser: true,
@@ -266,19 +277,31 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
         );
       });
 
-      // Blood-red thermal flash -> slate-950 solidify
-      tl.fromTo(
-        job.charEl,
-        { color: '#ef4444' },
-        { color: '#020617', duration: 0.14, ease: 'power2.out', immediateRender: false }
-      ).to(job.svgEl, { opacity: 0, duration: 0.12 }, '<');
+      // Molten white-hot contact -> stays glowing hot red-orange until arm finishes and cools
+      tl.to(job.svgEl, { opacity: 0, duration: 0.14, ease: 'power1.out' })
+        .fromTo(
+          job.charEl,
+          {
+            color: '#fef08a',
+            textShadow: '0 0 22px rgba(254, 240, 138, 0.95), 0 0 10px rgba(249, 115, 22, 0.9)',
+          },
+          {
+            color: '#ef4444',
+            textShadow: '0 0 14px rgba(239, 68, 68, 0.85), 0 0 6px rgba(249, 115, 22, 0.7)',
+            duration: 0.16,
+            ease: 'power1.out',
+            immediateRender: false,
+          },
+          '<'
+        );
     });
 
-    // 3. Engrave headline character-by-character inside focused spotlight (zero reflow)
+    // 3. Engrave headline character-by-character, keeping letters hot until post-engraving cooling
     headCharCoords.forEach(({ el: charEl, sx, sy }) => {
       tl.to(charEl, {
         opacity: 1,
-        color: '#475569',
+        color: '#fb923c',
+        textShadow: '0 0 10px rgba(249, 115, 22, 0.75)',
         duration: 0.024,
         ease: 'none',
         onStart: () => {
@@ -286,13 +309,22 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
           laserTargetRef.current.screenY = sy;
           setSpotlight(sx, sy);
         },
+        onComplete: () => {
+          gsap.to(charEl, {
+            color: '#ef4444',
+            textShadow: '0 0 8px rgba(220, 38, 38, 0.55)',
+            duration: 0.18,
+            ease: 'power1.out',
+          });
+        },
       });
     });
 
-    // 4. Laser off, pull camera & DOM zoom back out, retract cinema bars, fade out dark layer
+    // 4. Laser off, restore light background, return arm to final resting position, then cool over >= 5 seconds
     tl.call(() => {
       laserTargetRef.current.active = false;
       laserTargetRef.current.fireLaser = false;
+      onEngravingThemeChangeRef.current?.(false);
       sound.playSuccess();
     })
       .to(overlayEl, { opacity: 0, duration: 0.55, ease: 'power2.inOut' })
@@ -301,15 +333,59 @@ export default function HeroSection({ content, isActive, onEngravingComplete, on
       .to(contentZoomRef.current, { scale: 1, duration: 0.55, ease: 'power2.inOut' }, '<')
       .to(badgeRef.current, { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out' }, '-=0.25')
       .to(ctaRef.current, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, '<')
+      .to({}, { duration: 0.45 }) // Allow robotic arm to settle at its final resting position
       .call(() => {
         setIsIdleTracking(true);
-      })
-      .to({}, { duration: 1.0 })
-      .call(() => {
         onEngravingCompleteRef.current?.();
+
+        // 3s realistic thermal cooling after arm reaches final position
+        const titleCool = gsap.timeline();
+        titleCool
+          .to(splitTitle.chars, {
+            color: '#b91c1c',
+            textShadow: '0 0 10px rgba(220, 38, 38, 0.6)',
+            duration: 1.0,
+            stagger: { amount: 0.45, from: 'start' },
+            ease: 'power1.inOut',
+            overwrite: 'auto',
+          })
+          .to(splitTitle.chars, {
+            color: '#450a0a',
+            textShadow: '0 0 4px rgba(185, 28, 28, 0.25)',
+            duration: 1.0,
+            stagger: { amount: 0.45, from: 'start' },
+            ease: 'power1.inOut',
+          })
+          .to(splitTitle.chars, {
+            color: '#020617',
+            textShadow: '0 0 0px rgba(0, 0, 0, 0)',
+            duration: 1.0,
+            stagger: { amount: 0.45, from: 'start' },
+            ease: 'power2.out',
+          });
+
+        const headCool = gsap.timeline();
+        headCool
+          .to(splitHead.chars, {
+            color: '#9a3412',
+            textShadow: '0 0 5px rgba(234, 88, 12, 0.35)',
+            duration: 1.3,
+            stagger: { amount: 0.4, from: 'start' },
+            ease: 'power1.inOut',
+            overwrite: 'auto',
+          })
+          .to(splitHead.chars, {
+            color: '#475569',
+            textShadow: '0 0 0px rgba(0, 0, 0, 0)',
+            duration: 1.7,
+            stagger: { amount: 0.4, from: 'start' },
+            ease: 'power2.out',
+          });
       });
 
     return () => {
+      onEngravingThemeChangeRef.current?.(false);
+      gsap.killTweensOf([...splitTitle.chars, ...splitHead.chars]);
       tl.kill();
       createdSvgs.forEach((s) => s.remove());
       splitTitle.revert();
