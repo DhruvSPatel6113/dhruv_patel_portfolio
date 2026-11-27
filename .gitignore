@@ -1,7 +1,9 @@
-# Chat history & local project logs (Strictly local, never uploaded)
+# Chat history, agent config & local project logs (Strictly local, never uploaded)
 .chat_history/
 *.chatlog
 .project_history/
+.agent/
+.agents/
 ideas.txt
 
 # Environment, keys & secrets
