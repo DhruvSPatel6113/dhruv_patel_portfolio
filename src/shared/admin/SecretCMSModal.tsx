@@ -45,7 +45,6 @@ export default function SecretCMSModal({
   const [loading, setLoading] = useState(false);
   const [draft, setDraft] = useState<PortfolioData>(content);
   const [statusNote, setStatusNote] = useState('');
-  const [devOtpNotification, setDevOtpNotification] = useState<string | null>(null);
 
   useEffect(() => {
     setDraft(content);
@@ -92,7 +91,6 @@ export default function SecretCMSModal({
         setCountdown(300);
         setResendCooldown(30);
         if (data.maskedEmail) setMaskedEmail(data.maskedEmail);
-        if (data.devOtp) setDevOtpNotification(data.devOtp);
         sound.playSuccess();
       } else {
         setErrorMsg(data.error || 'Access Denied: Incorrect passcode.');
@@ -144,7 +142,6 @@ export default function SecretCMSModal({
       if (res.ok) {
         setCountdown(300);
         setResendCooldown(30);
-        if (data.devOtp) setDevOtpNotification(data.devOtp);
         sound.playSuccess();
       } else {
         setErrorMsg(data.error || 'Failed to resend code.');
@@ -296,11 +293,6 @@ export default function SecretCMSModal({
               placeholder="000000"
               className="w-full text-center tracking-[10px] font-bold text-2xl bg-slate-50 border border-slate-200 focus:border-sky-500 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:bg-white"
             />
-            {devOtpNotification && (
-              <div className="p-2.5 rounded-lg bg-sky-50 border border-sky-200 text-[11px] text-sky-800 text-center">
-                Local Dev Token: <strong className="text-sky-950 tracking-widest">{devOtpNotification}</strong>
-              </div>
-            )}
             {errorMsg && (
               <div className="p-3 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs flex items-center gap-2">
                 <AlertCircle size={14} />
