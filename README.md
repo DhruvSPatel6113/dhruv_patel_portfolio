@@ -2,7 +2,7 @@
 
 > Personal interactive developer portfolio showcase
 
-[![Play Live Demo]
+[![Play Live Demo]]
 
 ## Live Web App
 👉 **Play / Preview directly in browser**: [https://dhruvpatel-umber.vercel.app/](https://dhruvpatel-umber.vercel.app/)
