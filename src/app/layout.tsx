@@ -7,12 +7,13 @@ export const metadata: Metadata = {
   title: 'Dhruv Patel — Robotics, Edge AI & Systems',
   description: 'Interactive 3D narrative portfolio of Dhruv Patel — Computer Science & Engineering, Industrial Automation, Low-Level Systems, and Hardware Innovation.',
   icons: {
-    icon: './public/favicon.svg',
+    icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
+    shortcut: ['/favicon.svg'],
   },
   openGraph: {
     title: 'Dhruv Patel — Robotics, Edge AI & Systems',
     description: 'Bridging algorithmic software, custom silicon, and real-world industrial machines.',
-    images: ['./public/favicon.svg'],
+    images: ['/favicon.svg'],
   },
 };
 
